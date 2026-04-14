@@ -1,0 +1,3254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Graph Maker</title>
+<style>
+  :root {
+    --gw-blue: #033C5A;
+    --gw-buff: #D6BF91;
+    --node-fill: #AA9868;
+    --edge: #033C5A;
+    --cross: #B22222;
+    --trace-edge: #D97706;
+    --trace-node: #E8C76A;
+    --bg: #F7F5F0;
+    --panel: #FFFFFF;
+    --text: #1F2937;
+    --muted: #6B7280;
+    --line: #D7DDE4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .app {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 12px;
+  }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .tab-btn {
+    border: 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--gw-blue);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .tab-btn.active { background: var(--gw-buff); }
+  .tab-panel {
+    display: none;
+    background: var(--panel);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.08);
+  }
+  .tab-panel.active { display: block; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(140px, 280px);
+    gap: 10px 14px;
+    align-items: center;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  label { font-weight: 600; color: var(--gw-blue); }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font: inherit;
+    background: white;
+    color: var(--text);
+  }
+  textarea { min-height: 170px; resize: vertical; }
+  .radio-box, .check-stack, .group-box {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  .group-box > .title { font-weight: 700; color: var(--gw-blue); margin-bottom: 6px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    border: 0;
+    background: var(--gw-blue);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn[aria-pressed="true"] { background: #05507A; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+
+  .mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 10px;
+    user-select: none;
+  }
+  .mode-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .mode-slider {
+    position: relative;
+    width: 54px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--gw-blue);
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: background 0.18s ease;
+  }
+  .mode-slider::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    transition: transform 0.18s ease;
+  }
+  .mode-switch input:checked + .mode-slider::after {
+    transform: translateX(24px);
+  }
+  .mode-label {
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    font-size: 0.95rem;
+    transition: color 0.18s ease, font-weight 0.18s ease;
+  }
+  .mode-label.active {
+    color: var(--gw-blue);
+    font-weight: 800;
+  }
+  .result-box {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 12px;
+    background: var(--gw-buff);
+    font-weight: 600;
+  }
+  .graph-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .graph-stats {
+    color: var(--gw-blue);
+    font-weight: 800;
+  }
+  .graph-wrap {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: white;
+    overflow: hidden;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: min(76vh, 780px);
+    touch-action: none;
+    background: white;
+  }
+  .table-wrap {
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(72vh, 760px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: white;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    min-width: 0;
+    font-size: 0.95rem;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+    color: var(--gw-blue);
+    z-index: 1;
+  }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 8px 8px;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  tbody tr.euler-selected { background: var(--gw-buff); }
+  tbody tr.hamilton-selected { background: #F3E7C5; }
+  .muted { color: var(--muted); font-size: .94rem; }
+  .hidden { display: none !important; }
+
+  .noscript-note {
+    max-width: 1600px;
+    margin: 12px auto 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #FFF4D6;
+    color: #5B3A00;
+    border: 1px solid #E6C97A;
+    font-weight: 600;
+  }
+  @media (max-width: 840px) {
+    .form-grid { grid-template-columns: 1fr; }
+    svg { height: 62vh; }
+    table { font-size: 0.85rem; }
+    th, td { padding: 7px 6px; }
+  }
+</style>
+</head>
+<body>
+<noscript>
+  <div class="noscript-note">This graph tool requires JavaScript to generate graphs, load graph codes, check planarity, and count Euler or Hamilton paths. Please enable JavaScript in your browser and reload the page.</div>
+</noscript>
+<div class="app">
+  <div class="tabs" id="tabs"></div>
+
+  <section class="tab-panel" data-tab="Main">
+    <div class="form-grid">
+      <label for="graphCode">Graph Code</label>
+      <input id="graphCode" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" />
+
+      <div class="full group-box">
+        <div class="title">Graph Type</div>
+        <div class="stack" id="graphTypeBox">
+          <label><input type="radio" name="graphType" value="0"> Regular</label>
+          <label><input type="radio" name="graphType" value="1"> Bipartite</label>
+          <label><input type="radio" name="graphType" value="2"> Rectangular Grid</label>
+          <label><input type="radio" name="graphType" value="3"> Cylindrical Grid</label>
+        </div>
+      </div>
+
+      <label id="basicNLabel" for="basicN">Number of Vertices</label>
+      <input id="basicN" type="number" min="1" max="99" step="1" />
+
+      <label id="specialMLabel" for="specialM">Special Graph M</label>
+      <input id="specialM" type="number" min="1" max="99" step="1" />
+
+      <label id="specialPLabel" for="specialP">Special Graph P</label>
+      <input id="specialP" type="number" min="1" max="99" step="1" />
+
+      <label id="valenceMeanLabel" for="valenceMean">Valence Mean</label>
+      <input id="valenceMean" type="number" min="1" max="99" step="0.1" />
+
+      <label id="valenceStdLabel" for="valenceStd">Valence Standard Deviation</label>
+      <input id="valenceStd" type="number" min="0" max="25" step="0.1" />
+
+      <div class="full check-stack stack">
+        <label><input id="selfLoops" type="checkbox"> Allow Self-Loops</label>
+        <label><input id="allowRepeatedEdges" type="checkbox"> Allow Repeated Edges</label>
+        <label><input id="directed" type="checkbox"> Directed Graph</label>
+        <label><input id="complete" type="checkbox"> Complete Graph</label>
+        <label><input id="displayValence" type="checkbox"> Display Valence</label>
+        <label><input id="displayEdgeLabels" type="checkbox"> Display Edge Labels</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Euler">
+    <div class="form-grid">
+      <label for="eulerStart">Euler Path Start</label>
+      <input id="eulerStart" list="vertexList" type="text" />
+      <label for="eulerEnd">Euler Path End</label>
+      <input id="eulerEnd" list="vertexList" type="text" />
+      <div class="full"><label><input id="eulerTrace" type="checkbox"> Euler Trace Mode</label></div>
+      <div class="full"><button class="btn" id="countEulerBtn">Count Euler Paths</button></div>
+      <div class="full result-box" id="eulerResult"></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Hamilton">
+    <div class="form-grid">
+      <label for="hamiltonStart">Hamilton Path Start</label>
+      <input id="hamiltonStart" list="vertexList" type="text" />
+      <label for="hamiltonEnd">Hamilton Path End</label>
+      <input id="hamiltonEnd" list="vertexList" type="text" />
+      <div class="full"><label><input id="hamiltonTrace" type="checkbox"> Hamilton Trace Mode</label></div>
+      <div class="full"><button class="btn" id="countHamiltonBtn">Count Hamilton Paths</button></div>
+      <div class="full result-box" id="hamiltonResult"></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Planarity">
+    <div class="form-grid">
+      <div class="full"><label><input id="planarityColor" type="checkbox"> Color Crossing Edges</label></div>
+      <div class="full"><button class="btn" id="checkPlanarityBtn">Check Planarity</button></div>
+      <div class="full result-box" id="planarityResult"></div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Instructor">
+    <div class="form-grid">
+      <div class="group-box">
+        <div class="title">Euler Path</div>
+        <div class="stack">
+          <label><input type="radio" name="instEuler" value="2"> Exists</label>
+          <label><input type="radio" name="instEuler" value="0"> Does Not Exist</label>
+          <label><input type="radio" name="instEuler" value="1"> Either</label>
+        </div>
+      </div>
+      <div class="group-box">
+        <div class="title">Hamilton Path</div>
+        <div class="stack">
+          <label><input type="radio" name="instHamilton" value="2"> Exists</label>
+          <label><input type="radio" name="instHamilton" value="0"> Does Not Exist</label>
+          <label><input type="radio" name="instHamilton" value="1"> Either</label>
+        </div>
+      </div>
+      <div class="group-box full">
+        <div class="title">Planarity</div>
+        <div class="stack">
+          <label><input type="radio" name="instPlanarity" value="2"> Planar</label>
+          <label><input type="radio" name="instPlanarity" value="0"> Not Planar</label>
+          <label><input type="radio" name="instPlanarity" value="1"> Either</label>
+        </div>
+      </div>
+      <label for="instNumResults">Number of Results</label>
+      <input id="instNumResults" type="number" min="1" max="1000" step="1" />
+      <label for="instRestartAttempts">Number of Restart Attempts</label>
+      <input id="instRestartAttempts" type="number" min="1" max="100000" step="1" />
+      <div class="full"><button class="btn" id="instGenerateBtn">Generate</button></div>
+      <div class="full">
+        <label for="instOutput">Matching Graph Codes</label>
+        <textarea id="instOutput"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Graph">
+    <div class="graph-top">
+      <div class="graph-stats" id="graphStats"></div>
+      <div class="row">
+        <label class="mode-switch" for="interactionModeToggle" aria-label="Interaction mode toggle">
+          <span class="mode-label move active" id="moveModeLabel">Move Vertices</span>
+          <input id="interactionModeToggle" type="checkbox" role="switch" aria-label="Toggle between Move Vertices and Pan/Zoom" />
+          <span class="mode-slider" aria-hidden="true"></span>
+          <span class="mode-label pan" id="panModeLabel">Pan/Zoom</span>
+        </label>
+        <button class="btn" id="reseedBtn">Reseed</button>
+      </div>
+    </div>
+    <div class="graph-wrap">
+      <svg id="graphSvg" viewBox="0 0 1000 700" aria-label="Graph drawing">
+        <defs>
+          <marker id="arrowMarker" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L8,3 z" fill="#033C5A"></path>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="Table">
+    <div class="table-wrap">
+      <table id="edgeTable">
+        <thead>
+          <tr><th id="thEdge">Edge</th><th id="thFrom">From Vertex</th><th id="thTo">To Vertex</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <datalist id="vertexList"></datalist>
+</div>
+<script>
+(() => {
+  const GW_BLUE = '#033C5A';
+  const GW_BUFF = '#D6BF91';
+  const NODE_FILL = '#AA9868';
+  const EDGE_COLOR = GW_BLUE;
+  const CROSSING_EDGE_COLOR = '#B22222';
+  const TRACE_EDGE_COLOR = '#D97706';
+  const TRACE_NODE_COLOR = '#E8C76A';
+  // Set to true to re-enable the Instructor tab without removing any of its code.
+  const ENABLE_INSTRUCTOR_TAB = false;
+
+  const TAB_NAMES = ENABLE_INSTRUCTOR_TAB
+    ? ['Main','Euler','Hamilton','Planarity','Instructor','Graph','Table']
+    : ['Main','Euler','Hamilton','Planarity','Graph','Table'];
+
+  function clipInt(value, low, high) {
+    let n = Number(value);
+    if (!Number.isFinite(n)) n = low;
+    n = Math.ceil(n);
+    return Math.max(low, Math.min(high, n));
+  }
+  function clipFloat(value, low, high) {
+    let n = Number(value);
+    if (!Number.isFinite(n)) n = low;
+    return Math.max(low, Math.min(high, n));
+  }
+  function indexToExcelLabel(index) {
+    let label = '';
+    let n = index + 1;
+    while (n > 0) {
+      const rem = (n - 1) % 26;
+      label = String.fromCharCode(65 + rem) + label;
+      n = Math.floor((n - 1) / 26);
+    }
+    return label;
+  }
+  function excelLabelToIndex(label) {
+    if (typeof label !== 'string') return null;
+    const s = label.trim().toUpperCase();
+    if (!s || !/^[A-Z]+$/.test(s)) return null;
+    let v = 0;
+    for (const ch of s) v = v * 26 + (ch.charCodeAt(0) - 64);
+    return v - 1;
+  }
+  function generateVertexLabels(n) { return Array.from({length:n}, (_,i)=>indexToExcelLabel(i)); }
+  function generateEdgeLabels(n) { return Array.from({length:n}, (_,i)=>indexToExcelLabel(i).toLowerCase()); }
+
+  class PythonRandom {
+    constructor(seed=0) {
+      this.N = 624;
+      this.M = 397;
+      this.MATRIX_A = 0x9908b0df;
+      this.UPPER_MASK = 0x80000000;
+      this.LOWER_MASK = 0x7fffffff;
+      this.mt = new Array(this.N).fill(0);
+      this.mti = this.N + 1;
+      this.gaussNext = null;
+      this.seed(seed);
+    }
+    seed(seedValue=0) {
+      let n = Number(seedValue);
+      if (!Number.isFinite(n)) n = 0;
+      n = Math.floor(Math.abs(n));
+      const key = [n >>> 0];
+      this.initByArray(key);
+      this.gaussNext = null;
+    }
+    initGenRand(s) {
+      this.mt[0] = s >>> 0;
+      for (this.mti = 1; this.mti < this.N; this.mti++) {
+        const prev = this.mt[this.mti - 1] >>> 0;
+        this.mt[this.mti] = (Math.imul(1812433253, (prev ^ (prev >>> 30))) + this.mti) >>> 0;
+      }
+    }
+    initByArray(key) {
+      this.initGenRand(19650218);
+      let i = 1;
+      let j = 0;
+      let k = Math.max(this.N, key.length);
+      for (; k > 0; k--) {
+        const prev = this.mt[i - 1] >>> 0;
+        this.mt[i] = ((this.mt[i] ^ Math.imul((prev ^ (prev >>> 30)), 1664525)) + (key[j] >>> 0) + j) >>> 0;
+        i++;
+        j++;
+        if (i >= this.N) {
+          this.mt[0] = this.mt[this.N - 1];
+          i = 1;
+        }
+        if (j >= key.length) j = 0;
+      }
+      for (k = this.N - 1; k > 0; k--) {
+        const prev = this.mt[i - 1] >>> 0;
+        this.mt[i] = ((this.mt[i] ^ Math.imul((prev ^ (prev >>> 30)), 1566083941)) - i) >>> 0;
+        i++;
+        if (i >= this.N) {
+          this.mt[0] = this.mt[this.N - 1];
+          i = 1;
+        }
+      }
+      this.mt[0] = 0x80000000;
+    }
+    genrandInt32() {
+      let y;
+      const mag01 = [0x0, this.MATRIX_A];
+      if (this.mti >= this.N) {
+        let kk;
+        for (kk = 0; kk < this.N - this.M; kk++) {
+          y = (this.mt[kk] & this.UPPER_MASK) | (this.mt[kk + 1] & this.LOWER_MASK);
+          this.mt[kk] = this.mt[kk + this.M] ^ (y >>> 1) ^ mag01[y & 0x1];
+        }
+        for (; kk < this.N - 1; kk++) {
+          y = (this.mt[kk] & this.UPPER_MASK) | (this.mt[kk + 1] & this.LOWER_MASK);
+          this.mt[kk] = this.mt[kk + (this.M - this.N)] ^ (y >>> 1) ^ mag01[y & 0x1];
+        }
+        y = (this.mt[this.N - 1] & this.UPPER_MASK) | (this.mt[0] & this.LOWER_MASK);
+        this.mt[this.N - 1] = this.mt[this.M - 1] ^ (y >>> 1) ^ mag01[y & 0x1];
+        this.mti = 0;
+      }
+      y = this.mt[this.mti++];
+      y ^= (y >>> 11);
+      y ^= (y << 7) & 0x9d2c5680;
+      y ^= (y << 15) & 0xefc60000;
+      y ^= (y >>> 18);
+      return y >>> 0;
+    }
+    random() {
+      const a = this.genrandInt32() >>> 5;
+      const b = this.genrandInt32() >>> 6;
+      return (a * 67108864 + b) / 9007199254740992;
+    }
+    getrandbits(k) {
+      if (k <= 0) return 0;
+      let bits = 0n;
+      let shift = 0n;
+      let remaining = k;
+      while (remaining > 0) {
+        const word = BigInt(this.genrandInt32());
+        const take = Math.min(32, remaining);
+        const mask = (1n << BigInt(take)) - 1n;
+        bits |= (word & mask) << shift;
+        shift += BigInt(take);
+        remaining -= take;
+      }
+      return bits;
+    }
+    randbelow(n) {
+      if (!(n > 0)) throw new Error('randbelow requires n > 0');
+      const bigN = BigInt(n);
+      const k = Math.ceil(Math.log2(n));
+      while (true) {
+        const r = this.getrandbits(k);
+        if (r < bigN) return Number(r);
+      }
+    }
+    randint(low, high) {
+      return low + this.randbelow(high - low + 1);
+    }
+    choice(arr) {
+      return arr[this.randbelow(arr.length)];
+    }
+    shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = this.randbelow(i + 1);
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    gauss(mean=0, std=1) {
+      let z = this.gaussNext;
+      this.gaussNext = null;
+      if (z === null) {
+        const x2pi = this.random() * (2.0 * Math.PI);
+        const g2rad = Math.sqrt(-2.0 * Math.log(1.0 - this.random()));
+        z = Math.cos(x2pi) * g2rad;
+        this.gaussNext = Math.sin(x2pi) * g2rad;
+      }
+      return mean + z * std;
+    }
+  }
+
+  function rand01(rng) { return (typeof rng === 'function') ? rng() : rng.random(); }
+  function randInt(rng, low, high) { return (typeof rng === 'function') ? (low + Math.floor(rng() * (high - low + 1))) : rng.randint(low, high); }
+  function randomChoice(rng, arr) { return (typeof rng === 'function') ? arr[Math.floor(rng() * arr.length)] : rng.choice(arr); }
+  function shuffle(rng, arr) {
+    if (typeof rng !== 'function') return rng.shuffle(arr);
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function randomGaussian(rng, mean=0, std=1) {
+    if (typeof rng !== 'function') return rng.gauss(mean, std);
+    let u = 0, v = 0;
+    while (u === 0) u = rand01(rng);
+    while (v === 0) v = rand01(rng);
+    const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    return mean + std * z;
+  }
+
+  function randomSeed32() {
+    try {
+      const arr = new Uint32Array(1);
+      if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+        globalThis.crypto.getRandomValues(arr);
+        return arr[0] & 0x7fffffff;
+      }
+    } catch (e) {}
+    return (Date.now() ^ 0x6D2B79F5) & 0x7fffffff;
+  }
+
+  function nextDeterministicSeed(seed) {
+    const rng = new PythonRandom((seed >>> 0) || 1);
+    return randInt(rng, 0, 2147483647);
+  }
+  function svgEl(name, attrs={}) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  }
+  function edgeKey(edge) { return `${edge.u}|${edge.v}|${edge.k}`; }
+  function unorderedPairKey(u,v) { return u === v ? `${u}|${u}` : [u,v].sort().join('|'); }
+  function canonicalDisplayEndpoints(u, v) {
+    if (u === v) return [u, v];
+    return String(u) <= String(v) ? [u, v] : [v, u];
+  }
+
+
+
+  class GraphCodeCodec {
+    static flagsString(desc) {
+      const gt = desc.graphType | 0;
+      if (![0, 1, 2, 3].includes(gt)) throw new Error('Invalid graphType.');
+      return `${gt}${desc.selfLoops ? '1' : '0'}${desc.allowRepeatedEdges ? '1' : '0'}${desc.directed ? '1' : '0'}${desc.complete ? '1' : '0'}`;
+    }
+    static parseFlags(s) {
+      const trimmed = String(s || '').trim();
+      if (!/^[0-3][01][01][01][01]$/.test(trimmed)) throw new Error('Invalid flags field.');
+      return {
+        graphType: parseInt(trimmed[0], 10),
+        selfLoops: trimmed[1] === '1',
+        allowRepeatedEdges: trimmed[2] === '1',
+        directed: trimmed[3] === '1',
+        complete: trimmed[4] === '1',
+      };
+    }
+    static base36(n) {
+      if (!Number.isInteger(n) || n < 0) throw new Error('Invalid nonnegative integer.');
+      return n.toString(36);
+    }
+    static parse36(s) {
+      if (!/^[0-9a-z]+$/i.test(s)) throw new Error('Invalid base36 token.');
+      return parseInt(s, 36);
+    }
+    static labelFromIndex(index) {
+      return indexToExcelLabel(index).toUpperCase();
+    }
+    static indexFromLabel(label) {
+      const idx = excelLabelToIndex(String(label || '').trim().toUpperCase());
+      if (idx === null || idx === undefined) throw new Error('Invalid vertex label.');
+      return idx;
+    }
+    static canonicalEdgeRecords(desc) {
+      const directed = !!desc.directed;
+      const labels = this.labelsForDescription(desc);
+      const records = (desc.edges || []).map(edge => {
+        if (directed) {
+          const src = Array.isArray(edge.orientation) ? edge.orientation[0] : edge.u;
+          const dst = Array.isArray(edge.orientation) ? edge.orientation[1] : edge.v;
+          const srcLabel = labels[src];
+          const dstLabel = labels[dst];
+          return {token: `${srcLabel}>${dstLabel}`, src, dst, u: edge.u, v: edge.v};
+        }
+        const a = Math.min(edge.u, edge.v);
+        const b = Math.max(edge.u, edge.v);
+        return {token: `${labels[a]}-${labels[b]}`, u: a, v: b};
+      });
+      records.sort((a, b) => a.token.localeCompare(b.token));
+      return records;
+    }
+    static encodeDescription(desc) {
+      this.validateDescription(desc);
+      const graphType = desc.graphType | 0;
+      const a = graphType === 0 ? (desc.basicN | 0) : (desc.specialM | 0);
+      const b = graphType === 0 ? 0 : (desc.specialP | 0);
+      const flags = this.flagsString(desc);
+      const records = this.canonicalEdgeRecords(desc);
+      const parts = [];
+      for (let i = 0; i < records.length; ) {
+        let j = i + 1;
+        while (j < records.length && records[j].token === records[i].token) j += 1;
+        const count = j - i;
+        parts.push(count > 1 ? `${records[i].token}*${this.base36(count)}` : records[i].token);
+        i = j;
+      }
+      const edgePart = parts.length ? parts.join(',') : '_';
+      return `${flags}.${this.base36(a)}.${this.base36(b)}.${edgePart}`;
+    }
+    static decodeCode(code) {
+      const trimmed = String(code || '').trim();
+      const pieces = trimmed.split('.');
+      if (pieces.length !== 4) throw new Error('Invalid graph code format.');
+      const header = this.parseFlags(pieces[0]);
+      const a = this.parse36(pieces[1]);
+      const b = this.parse36(pieces[2]);
+      const desc = {
+        version: 1,
+        graphType: header.graphType,
+        basicN: header.graphType === 0 ? a : 0,
+        specialM: header.graphType === 0 ? 0 : a,
+        specialP: header.graphType === 0 ? 0 : b,
+        selfLoops: header.selfLoops,
+        allowRepeatedEdges: header.allowRepeatedEdges,
+        directed: header.directed,
+        complete: header.complete,
+        edges: [],
+      };
+      const labels = this.labelsForDescription(desc);
+      const n = labels.length;
+      const edgePart = pieces[3];
+      if (edgePart !== '_') {
+        const tokens = edgePart.split(',').filter(Boolean);
+        for (const token of tokens) {
+          const [edgeToken, countToken] = token.split('*');
+          const count = countToken ? this.parse36(countToken) : 1;
+          if (!(count >= 1)) throw new Error('Invalid repeated-edge count.');
+          if (desc.directed) {
+            const m = /^([A-Z]+)>([A-Z]+)$/i.exec(edgeToken);
+            if (!m) throw new Error('Invalid directed edge token.');
+            const src = this.indexFromLabel(m[1]);
+            const dst = this.indexFromLabel(m[2]);
+            if (src >= n || dst >= n) throw new Error('Edge vertex label out of range.');
+            for (let i = 0; i < count; i++) desc.edges.push({u: src, v: dst, orientation: [src, dst]});
+          } else {
+            const m = /^([A-Z]+)-([A-Z]+)$/i.exec(edgeToken);
+            if (!m) throw new Error('Invalid undirected edge token.');
+            const u = this.indexFromLabel(m[1]);
+            const v = this.indexFromLabel(m[2]);
+            if (u >= n || v >= n) throw new Error('Edge vertex label out of range.');
+            if (u > v) throw new Error('Undirected edges must be canonical.');
+            for (let i = 0; i < count; i++) desc.edges.push({u, v});
+          }
+        }
+      }
+      this.validateDescription(desc);
+      const canonical = this.encodeDescription(desc);
+      if (canonical !== trimmed) throw new Error('Non-canonical graph code.');
+      return desc;
+    }
+    static labelsForDescription(desc) {
+      if (desc.graphType === 0) return generateVertexLabels(desc.basicN);
+      if (desc.graphType === 1) return generateVertexLabels(desc.specialM + desc.specialP);
+      return generateVertexLabels(desc.specialM * desc.specialP);
+    }
+    static validateDescription(desc) {
+      const labels = this.labelsForDescription(desc);
+      const n = labels.length;
+      if (![0, 1, 2, 3].includes(desc.graphType | 0)) throw new Error('Invalid graphType.');
+      if (desc.graphType === 0 && !(desc.basicN >= 1)) throw new Error('Invalid basicN.');
+      if (desc.graphType !== 0 && !(desc.specialM >= 1 && desc.specialP >= 1)) throw new Error('Invalid special graph dimensions.');
+
+      const directed = !!desc.directed;
+      const allowRepeated = !!desc.allowRepeatedEdges;
+      const selfLoops = !!desc.selfLoops;
+      const complete = !!desc.complete;
+      const undirectedCounts = new Map();
+      const directedCounts = new Map();
+
+      for (const edge of desc.edges) {
+        if (!Number.isInteger(edge.u) || !Number.isInteger(edge.v) || edge.u < 0 || edge.v < 0 || edge.u >= n || edge.v >= n) {
+          throw new Error('Edge vertex index out of range.');
+        }
+        if (!selfLoops && edge.u === edge.v) throw new Error('Self-loop not allowed by graph code flags.');
+        if (directed) {
+          if (!Array.isArray(edge.orientation) || edge.orientation.length !== 2) throw new Error('Directed edge missing orientation.');
+          if (edge.orientation[0] !== edge.u || edge.orientation[1] !== edge.v) throw new Error('Directed edge orientation mismatch.');
+          const dkey = `${edge.u}>${edge.v}`;
+          directedCounts.set(dkey, (directedCounts.get(dkey) || 0) + 1);
+        }
+        const a = Math.min(edge.u, edge.v);
+        const b = Math.max(edge.u, edge.v);
+        const ukey = `${a}-${b}`;
+        undirectedCounts.set(ukey, (undirectedCounts.get(ukey) || 0) + 1);
+      }
+
+      if (!allowRepeated) {
+        const seen = new Set();
+        for (const edge of desc.edges) {
+          const key = directed ? `${edge.u}>${edge.v}` : `${Math.min(edge.u, edge.v)}-${Math.max(edge.u, edge.v)}`;
+          if (seen.has(key)) throw new Error('Repeated edges not allowed by graph code flags.');
+          seen.add(key);
+        }
+      }
+
+      if (desc.graphType === 1) {
+        if (selfLoops) throw new Error('Bipartite graphs cannot allow self-loops.');
+        const leftSize = desc.specialM | 0;
+        for (const edge of desc.edges) {
+          const leftU = edge.u < leftSize;
+          const leftV = edge.v < leftSize;
+          if (leftU === leftV) throw new Error('Bipartite edges must connect the two different parts.');
+        }
+      }
+
+      if (desc.graphType === 2 || desc.graphType === 3) {
+        if (selfLoops) throw new Error('Grid-family graphs cannot allow self-loops.');
+        if (allowRepeated) throw new Error('Grid-family graphs cannot allow repeated edges.');
+        if (directed) throw new Error('Grid-family graphs cannot be directed.');
+        if (complete) throw new Error('Grid-family graphs cannot be complete.');
+        const m = desc.specialM | 0;
+        const p = desc.specialP | 0;
+        const expected = new Set();
+        const idx = (x, y) => y * m + x;
+        if (desc.graphType === 2) {
+          for (let y = 0; y < p; y++) {
+            for (let x = 0; x < m; x++) {
+              if (x + 1 < m) expected.add(`${idx(x, y)}-${idx(x + 1, y)}`);
+              if (y + 1 < p) expected.add(`${idx(x, y)}-${idx(x, y + 1)}`);
+            }
+          }
+        } else {
+          for (let r = 0; r < m; r++) {
+            for (let a = 0; a < p; a++) {
+              const cur = r * p + a;
+              const around = r * p + ((a + 1) % p);
+              expected.add(`${Math.min(cur, around)}-${Math.max(cur, around)}`);
+              if (r + 1 < m) {
+                const out = (r + 1) * p + a;
+                expected.add(`${Math.min(cur, out)}-${Math.max(cur, out)}`);
+              }
+            }
+          }
+        }
+        if (undirectedCounts.size !== expected.size) throw new Error('Grid-family graph edges must match the required grid adjacency exactly.');
+        for (const key of expected) {
+          if (undirectedCounts.get(key) !== 1) throw new Error('Grid-family graph edges must match the required grid adjacency exactly.');
+        }
+        for (const key of undirectedCounts.keys()) {
+          if (!expected.has(key)) throw new Error('Grid-family graph edges must match the required grid adjacency exactly.');
+        }
+      }
+
+      if (complete) {
+        if (selfLoops) throw new Error('Complete graphs cannot allow self-loops.');
+        if (allowRepeated) throw new Error('Complete graphs cannot allow repeated edges.');
+        const expectedDirected = new Map();
+        const expectedUndirected = new Map();
+        if (desc.graphType === 0) {
+          for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+              expectedUndirected.set(`${i}-${j}`, 1);
+              if (directed) {
+                expectedDirected.set(`${i}>${j}`, 1);
+                expectedDirected.set(`${j}>${i}`, 1);
+              }
+            }
+          }
+        } else if (desc.graphType === 1) {
+          const leftSize = desc.specialM | 0;
+          for (let i = 0; i < leftSize; i++) {
+            for (let j = leftSize; j < n; j++) {
+              expectedUndirected.set(`${i}-${j}`, 1);
+              if (directed) {
+                expectedDirected.set(`${i}>${j}`, 1);
+                expectedDirected.set(`${j}>${i}`, 1);
+              }
+            }
+          }
+        }
+        if (directed) {
+          if (directedCounts.size !== expectedDirected.size) throw new Error('Complete graph edges must match the required complete adjacency exactly.');
+          for (const [key, count] of expectedDirected.entries()) {
+            if (directedCounts.get(key) !== count) throw new Error('Complete graph edges must match the required complete adjacency exactly.');
+          }
+        } else {
+          if (undirectedCounts.size !== expectedUndirected.size) throw new Error('Complete graph edges must match the required complete adjacency exactly.');
+          for (const [key, count] of expectedUndirected.entries()) {
+            if (undirectedCounts.get(key) !== count) throw new Error('Complete graph edges must match the required complete adjacency exactly.');
+          }
+        }
+      }
+
+      if (n > 1) {
+        if ((desc.edges || []).length === 0) throw new Error('Graph code must describe a connected graph.');
+        const adj = Array.from({length: n}, () => []);
+        for (const edge of desc.edges) {
+          adj[edge.u].push(edge.v);
+          if (edge.u !== edge.v) adj[edge.v].push(edge.u);
+        }
+        const seen = new Set([0]);
+        const stack = [0];
+        while (stack.length) {
+          const cur = stack.pop();
+          for (const nxt of adj[cur]) {
+            if (!seen.has(nxt)) {
+              seen.add(nxt);
+              stack.push(nxt);
+            }
+          }
+        }
+        if (seen.size !== n) throw new Error('Graph code must describe a connected graph.');
+      }
+    }
+    static descriptionToJson(desc) {
+      return {
+        version: 1,
+        graphType: desc.graphType,
+        basicN: desc.basicN,
+        specialM: desc.specialM,
+        specialP: desc.specialP,
+        selfLoops: !!desc.selfLoops,
+        allowRepeatedEdges: !!desc.allowRepeatedEdges,
+        directed: !!desc.directed,
+        complete: !!desc.complete,
+        labels: this.labelsForDescription(desc),
+        edges: (desc.edges || []).map(edge => {
+          const out = {
+            u: edge.u,
+            v: edge.v,
+            uLabel: this.labelFromIndex(edge.u),
+            vLabel: this.labelFromIndex(edge.v),
+          };
+          if (desc.directed) out.orientation = [edge.orientation[0], edge.orientation[1]];
+          return out;
+        }),
+      };
+    }
+  }
+
+
+  class SimpleGraph {
+    constructor(multigraph=false) {
+      this.multigraph = multigraph;
+      this.nodes = [];
+      this.nodeSet = new Set();
+      this.edges = [];
+      this.nextKeyByPair = new Map();
+    }
+    addNode(n) {
+      if (!this.nodeSet.has(n)) { this.nodeSet.add(n); this.nodes.push(n); }
+    }
+    addNodesFrom(arr) { arr.forEach(n=>this.addNode(n)); }
+    hasNode(n) { return this.nodeSet.has(n); }
+    addEdge(u,v,data={}) {
+      this.addNode(u); this.addNode(v);
+      const pair = `${u}|${v}`;
+      const unorderedPair = unorderedPairKey(u, v);
+      const k = this.nextKeyByPair.get(pair) || 0;
+      this.nextKeyByPair.set(pair, k + 1);
+      const displaySlot = (data.displaySlot !== undefined)
+        ? data.displaySlot
+        : this.edges.filter(e => unorderedPairKey(e.u, e.v) === unorderedPair).length;
+      const e = {u,v,k, displaySlot, ...data};
+      this.edges.push(e);
+      return e;
+    }
+    hasEdge(u,v) {
+      return this.edges.some(e => (e.u === u && e.v === v) || (e.u === v && e.v === u));
+    }
+    degree(node) {
+      let d = 0;
+      for (const e of this.edges) {
+        if (e.u === node && e.v === node) d += 2;
+        else if (e.u === node || e.v === node) d += 1;
+      }
+      return d;
+    }
+    numberOfNodes() { return this.nodes.length; }
+    numberOfEdges() { return this.edges.length; }
+    incidentEdges(node) {
+      return this.edges.filter(e => e.u === node || e.v === node);
+    }
+    neighbors(node) {
+      const set = new Set();
+      for (const e of this.edges) {
+        if (e.u === node && e.v !== node) set.add(e.v);
+        else if (e.v === node && e.u !== node) set.add(e.u);
+      }
+      return [...set];
+    }
+    connectedComponents() {
+      const seen = new Set();
+      const comps = [];
+      for (const node of this.nodes) {
+        if (seen.has(node)) continue;
+        const stack = [node];
+        const comp = [];
+        seen.add(node);
+        while (stack.length) {
+          const cur = stack.pop();
+          comp.push(cur);
+          for (const nxt of this.neighbors(cur)) {
+            if (!seen.has(nxt)) { seen.add(nxt); stack.push(nxt); }
+          }
+        }
+        comps.push(comp);
+      }
+      return comps;
+    }
+    isConnectedIgnoringIsolated() {
+      const active = this.nodes.filter(n => this.degree(n) > 0);
+      if (active.length <= 1) return true;
+      const seen = new Set([active[0]]);
+      const stack = [active[0]];
+      while (stack.length) {
+        const cur = stack.pop();
+        for (const nxt of this.neighbors(cur)) {
+          if (!seen.has(nxt)) { seen.add(nxt); stack.push(nxt); }
+        }
+      }
+      return active.every(n => seen.has(n));
+    }
+    relabel(map) {
+      const g = new SimpleGraph(this.multigraph);
+      g.addNodesFrom(this.nodes.map(n => map[n] ?? n));
+      for (const e of this.edges) {
+        const nu = map[e.u] ?? e.u;
+        const nv = map[e.v] ?? e.v;
+        const data = {...e};
+        delete data.u;
+        delete data.v;
+        delete data.k;
+        if (Array.isArray(data.orientationHint) && data.orientationHint.length === 2) {
+          data.orientationHint = [
+            map[data.orientationHint[0]] ?? data.orientationHint[0],
+            map[data.orientationHint[1]] ?? data.orientationHint[1]
+          ];
+        }
+        g.addEdge(nu, nv, data);
+      }
+      return g;
+    }
+    simpleUnderlying() {
+      const g = new SimpleGraph(false);
+      g.addNodesFrom(this.nodes);
+      const seen = new Set();
+      for (const e of this.edges) {
+        if (e.u === e.v) continue;
+        const k = unorderedPairKey(e.u, e.v);
+        if (!seen.has(k)) { seen.add(k); g.addEdge(e.u, e.v); }
+      }
+      return g;
+    }
+  }
+
+  class GraphLogic {
+    constructor() { this.maxRetries = 100; }
+
+    buildGraphBundle(config) {
+      const rng = new PythonRandom(config.seed >>> 0);
+      config = this.applyForcedConstraints(config);
+      let candidate = null;
+      for (let tries = 0; tries < this.maxRetries; tries++) {
+        let graph, labels, positions;
+        if (config.graphType === 0) [graph, labels, positions] = this.buildRegularGraph(config, rng);
+        else if (config.graphType === 1) [graph, labels, positions] = this.buildBipartiteGraph(config, rng);
+        else if (config.graphType === 2) [graph, labels, positions] = this.buildRectangularGridGraph(config);
+        else [graph, labels, positions] = this.buildCylindricalGridGraph(config);
+
+        if (graph.numberOfNodes() > 1 && !graph.isConnectedIgnoringIsolated()) {
+          candidate = {graph, labels, positions};
+          continue;
+        }
+
+        const meta = this.extractEdgeMetadata(graph, config, rng);
+        const planarityInfo = this.checkPlanarity(graph, config);
+        const tempBundle = {
+          graph, labels, positions,
+          edgeIds: meta.edgeIds,
+          edgeLabels: {},
+          tableRows: [],
+          isPlanar: planarityInfo.isPlanar,
+          planarityMethod: planarityInfo.method,
+          planarityNote: planarityInfo.note,
+          valences: {},
+          pairOffsets: {},
+          incidentEdges: meta.incidentEdges,
+          edgeOrientations: meta.edgeOrientations,
+        };
+        if (!this.bundleMatchesConstraints(tempBundle, config)) {
+          candidate = {...tempBundle, edgeSlotMap: meta.edgeSlotMap};
+          continue;
+        }
+        candidate = {...tempBundle, edgeSlotMap: meta.edgeSlotMap};
+        break;
+      }
+      if (!candidate) throw new Error('Unable to generate a candidate graph.');
+      const edgeLabels = {};
+      const edgeLabelList = generateEdgeLabels(candidate.edgeIds.length);
+      candidate.edgeIds.forEach((edge, idx) => { edgeLabels[edgeKey(edge)] = edgeLabelList[idx]; });
+      const pairOffsets = this.computePairOffsets(candidate.edgeIds, candidate.edgeSlotMap);
+      const valences = this.computeValences(candidate.graph, candidate.edgeIds, candidate.edgeOrientations, config.directed);
+      const tableRows = candidate.edgeIds.map(edge => {
+        const o = config.directed ? candidate.edgeOrientations[edgeKey(edge)] : [edge.u, edge.v];
+        return [
+          config.displayEdgeLabels ? edgeLabels[edgeKey(edge)] : '',
+          this.formatVertexWithValence(o[0], valences, config.directed, config.displayValence),
+          this.formatVertexWithValence(o[1], valences, config.directed, config.displayValence),
+        ];
+      });
+      return {
+        graph: candidate.graph,
+        labels: candidate.labels,
+        positions: candidate.positions,
+        edgeIds: candidate.edgeIds,
+        edgeLabels,
+        tableRows,
+        isPlanar: candidate.isPlanar,
+        valences,
+        pairOffsets,
+        incidentEdges: candidate.incidentEdges,
+        edgeOrientations: candidate.edgeOrientations,
+      };
+    }
+
+
+    buildBundleFromDescription(desc, displayConfig) {
+      GraphCodeCodec.validateDescription(desc);
+      const structural = {
+        graphType: desc.graphType,
+        basicN: desc.basicN,
+        specialM: desc.specialM,
+        specialP: desc.specialP,
+        selfLoops: desc.selfLoops,
+        allowRepeatedEdges: desc.allowRepeatedEdges,
+        directed: desc.directed,
+        complete: desc.complete,
+      };
+      const config = {
+        ...displayConfig,
+        ...structural,
+      };
+      const labels = GraphCodeCodec.labelsForDescription(desc);
+      const positions = this.defaultPositionsForDescription(desc, labels);
+      const graph = this.makeGraph(desc.allowRepeatedEdges || (desc.complete && desc.directed));
+      graph.addNodesFrom(labels);
+      for (const edge of desc.edges) {
+        const u = labels[edge.u];
+        const v = labels[edge.v];
+        const data = desc.directed ? {orientationHint: [labels[edge.orientation[0]], labels[edge.orientation[1]]]} : {};
+        graph.addEdge(u, v, data);
+      }
+      const rng = new PythonRandom(0);
+      const meta = this.extractEdgeMetadata(graph, config, rng);
+      const planarityInfo = this.checkPlanarity(graph, config);
+      const edgeLabels = {};
+      const edgeLabelList = generateEdgeLabels(meta.edgeIds.length);
+      meta.edgeIds.forEach((edge, idx) => { edgeLabels[edgeKey(edge)] = edgeLabelList[idx]; });
+      const pairOffsets = this.computePairOffsets(meta.edgeIds, meta.edgeSlotMap);
+      const valences = this.computeValences(graph, meta.edgeIds, meta.edgeOrientations, config.directed);
+      const tableRows = meta.edgeIds.map(edge => {
+        const orient = config.directed ? meta.edgeOrientations[edgeKey(edge)] : [edge.u, edge.v];
+        return [
+          config.displayEdgeLabels ? edgeLabels[edgeKey(edge)] : '',
+          this.formatVertexWithValence(orient[0], valences, config.directed, config.displayValence),
+          this.formatVertexWithValence(orient[1], valences, config.directed, config.displayValence),
+        ];
+      });
+      return {
+        graph,
+        labels,
+        positions,
+        edgeIds: meta.edgeIds,
+        edgeLabels,
+        tableRows,
+        isPlanar: planarityInfo.isPlanar,
+        planarityMethod: planarityInfo.method,
+        planarityNote: planarityInfo.note,
+        valences,
+        pairOffsets,
+        incidentEdges: meta.incidentEdges,
+        edgeOrientations: meta.edgeOrientations,
+      };
+    }
+
+    defaultPositionsForDescription(desc, labels) {
+      if (desc.graphType === 0) return this.circleLayout(labels);
+      if (desc.graphType === 1) {
+        const left = labels.slice(0, desc.specialM);
+        const right = labels.slice(desc.specialM);
+        const positions = {};
+        const topSpacing = 1.6, bottomSpacing = 1.6;
+        const topStart = -0.5 * topSpacing * (Math.max(1, left.length) - 1);
+        const bottomStart = -0.5 * bottomSpacing * (Math.max(1, right.length) - 1);
+        left.forEach((label, i) => positions[label] = [topStart + i * topSpacing, 1.25]);
+        right.forEach((label, i) => positions[label] = [bottomStart + i * bottomSpacing, -1.25]);
+        return positions;
+      }
+      if (desc.graphType === 2) {
+        const positions = {};
+        let idx = 0;
+        for (let y = 0; y < desc.specialP; y++) {
+          for (let x = 0; x < desc.specialM; x++) {
+            positions[labels[idx++]] = [x * 1.5, -y * 1.5];
+          }
+        }
+        return positions;
+      }
+      const positions = {};
+      const radii = Array.from({length: Math.max(1, desc.specialM)}, (_, i) => 1.6 + 1.35 * i);
+      let idx = 0;
+      for (let r = 0; r < desc.specialM; r++) {
+        for (let a = 0; a < desc.specialP; a++) {
+          const angle = 2 * Math.PI * a / desc.specialP;
+          positions[labels[idx++]] = [radii[r] * Math.cos(angle), radii[r] * Math.sin(angle)];
+        }
+      }
+      return positions;
+    }
+
+    bundleToGraphDescription(bundle, config) {
+      const labelToIndex = new Map(bundle.labels.map((label, idx) => [label, idx]));
+      const desc = {
+        version: 1,
+        graphType: config.graphType,
+        basicN: config.graphType === 0 ? config.basicN : 0,
+        specialM: config.graphType === 0 ? 0 : config.specialM,
+        specialP: config.graphType === 0 ? 0 : config.specialP,
+        selfLoops: !!config.selfLoops,
+        allowRepeatedEdges: !!config.allowRepeatedEdges,
+        directed: !!config.directed,
+        complete: !!config.complete,
+        edges: [],
+      };
+      for (const edge of bundle.edgeIds) {
+        const entry = {u: labelToIndex.get(edge.u), v: labelToIndex.get(edge.v)};
+        if (config.directed) {
+          const orient = bundle.edgeOrientations[edgeKey(edge)] || [edge.u, edge.v];
+          entry.orientation = [labelToIndex.get(orient[0]), labelToIndex.get(orient[1])];
+          entry.u = entry.orientation[0];
+          entry.v = entry.orientation[1];
+        }
+        desc.edges.push(entry);
+      }
+      return GraphCodeCodec.decodeCode(GraphCodeCodec.encodeDescription(desc));
+    }
+
+    makeGraph(allowRepeatedEdges) { return new SimpleGraph(allowRepeatedEdges); }
+    canAddEdge(graph, u, v, allowRepeatedEdges) { return allowRepeatedEdges ? true : !graph.hasEdge(u,v); }
+
+    applyForcedConstraints(config) {
+      const c = JSON.parse(JSON.stringify(config));
+      if (c.graphType === 0) c.basicN = Math.max(c.selfLoops ? 1 : 2, c.basicN);
+      if (c.graphType === 1) {
+        const m = c.specialM, p = c.specialP;
+        if (Math.abs(m-p) > 1 && c.hamiltonPathFlag === 2) c.hamiltonPathFlag = 0;
+        if ((m === 1 && p > 2) || (p === 1 && m > 2)) if (c.hamiltonPathFlag === 2) c.hamiltonPathFlag = 0;
+      }
+      return c;
+    }
+
+    buildRegularGraph(config, rng) {
+      const usePairwiseMultiedges = (config.complete && config.directed);
+      const graph = this.makeGraph(config.allowRepeatedEdges || usePairwiseMultiedges);
+      const labels = generateVertexLabels(config.basicN);
+      graph.addNodesFrom(labels);
+      const positions = this.circleLayout(labels);
+      if (config.complete) {
+        labels.forEach((u,i) => {
+          if (config.selfLoops && this.canAddEdge(graph,u,u,config.allowRepeatedEdges || usePairwiseMultiedges)) graph.addEdge(u,u);
+          labels.slice(i+1).forEach(v => {
+            if (usePairwiseMultiedges) {
+              graph.addEdge(u,v,{orientationHint:[u,v]});
+              graph.addEdge(u,v,{orientationHint:[v,u]});
+            } else if (this.canAddEdge(graph,u,v,config.allowRepeatedEdges)) graph.addEdge(u,v);
+          });
+        });
+        return [graph, labels, positions];
+      }
+      const targets = {};
+      labels.forEach(label => {
+        const raw = Math.round(randomGaussian(rng, config.valenceMean, config.valenceStd));
+        targets[label] = Math.max(0, raw);
+      });
+      let attempts = 0;
+      while (attempts < 2000) {
+        attempts += 1;
+        const deficits = [];
+        labels.forEach(node => {
+          const deficit = targets[node] - graph.degree(node);
+          if (deficit > 0) for (let i=0;i<Math.min(deficit,3);i++) deficits.push(node);
+        });
+        if (deficits.length < 2 && !(config.selfLoops && deficits.length === 1)) break;
+        const u = randomChoice(rng, deficits);
+        const v = randomChoice(rng, labels);
+        if (!config.selfLoops && u === v) continue;
+        if (!this.canAddEdge(graph,u,v,config.allowRepeatedEdges)) continue;
+        graph.addEdge(u,v);
+      }
+      this.ensureConnected(graph, labels, config.allowRepeatedEdges, rng);
+      if (config.eulerPathFlag === 2 && !this.hasEulerianPath(graph)) this.forceEulerPath(graph, config.allowRepeatedEdges);
+      if (config.hamiltonPathFlag === 2) this.forceHamiltonPath(graph, config.allowRepeatedEdges);
+      return [graph, labels, positions];
+    }
+
+    ensureConnected(graph, labels, allowRepeatedEdges, rng) {
+      if (labels.length <= 1) return;
+      const comps = graph.connectedComponents();
+      for (let i=0;i<comps.length-1;i++) {
+        const u = randomChoice(rng, comps[i]);
+        const v = randomChoice(rng, comps[i+1]);
+        if (this.canAddEdge(graph,u,v,allowRepeatedEdges)) graph.addEdge(u,v);
+      }
+    }
+
+    buildBipartiteGraph(config, rng) {
+      const usePairwiseMultiedges = (config.complete && config.directed);
+      const graph = this.makeGraph(config.allowRepeatedEdges || usePairwiseMultiedges);
+      const allLabels = generateVertexLabels(config.specialM + config.specialP);
+      const left = allLabels.slice(0, config.specialM);
+      const rightInternal = allLabels.slice(config.specialM).map(x => `R_${x}`);
+      graph.addNodesFrom(left.concat(rightInternal));
+      const positions = {};
+      const topCols = Math.max(1, left.length);
+      const bottomCols = Math.max(1, rightInternal.length);
+      const topSpacing = 1.6, bottomSpacing = 1.6;
+      const topStart = -0.5 * topSpacing * (topCols - 1);
+      const bottomStart = -0.5 * bottomSpacing * (bottomCols - 1);
+      left.forEach((label,i)=> positions[label] = [topStart + i*topSpacing, 1.25]);
+      rightInternal.forEach((label,i)=> positions[label] = [bottomStart + i*bottomSpacing, -1.25]);
+      if (config.complete) {
+        left.forEach(u => rightInternal.forEach(v => {
+          if (usePairwiseMultiedges) {
+            graph.addEdge(u,v,{orientationHint:[u,v]});
+            graph.addEdge(u,v,{orientationHint:[v,u]});
+          } else if (this.canAddEdge(graph,u,v,config.allowRepeatedEdges)) graph.addEdge(u,v);
+        }));
+      } else {
+        left.forEach(u => {
+          const shuffled = shuffle(rng, rightInternal);
+          const edgeCount = Math.max(1, Math.min(rightInternal.length, Math.round(randomGaussian(rng, config.valenceMean, config.valenceStd))));
+          shuffled.slice(0, edgeCount).forEach(v => {
+            if (this.canAddEdge(graph,u,v,config.allowRepeatedEdges)) graph.addEdge(u,v);
+          });
+        });
+        this.ensureConnectedBipartite(graph, left, rightInternal, config.allowRepeatedEdges, rng);
+      }
+      const visibleRight = rightInternal.map(x => x.replace('R_', ''));
+      const relabel = {};
+      left.concat(rightInternal).forEach((old,idx) => relabel[old] = left.concat(visibleRight)[idx]);
+      const relabeled = graph.relabel(relabel);
+      const newPos = {};
+      Object.entries(positions).forEach(([node,xy]) => newPos[relabel[node]] = xy);
+      return [relabeled, left.concat(visibleRight), newPos];
+    }
+
+    ensureConnectedBipartite(graph, left, right, allowRepeatedEdges, rng) {
+      left.forEach(u => {
+        if (graph.degree(u) === 0) {
+          const v = randomChoice(rng, right);
+          if (this.canAddEdge(graph,u,v,allowRepeatedEdges)) graph.addEdge(u,v);
+        }
+      });
+      right.forEach(v => {
+        if (graph.degree(v) === 0) {
+          const u = randomChoice(rng, left);
+          if (this.canAddEdge(graph,u,v,allowRepeatedEdges)) graph.addEdge(u,v);
+        }
+      });
+      const comps = graph.connectedComponents();
+      for (let i=0;i<comps.length-1;i++) {
+        const c1 = comps[i], c2 = comps[i+1];
+        const left1 = c1.filter(x => left.includes(x));
+        const right2 = c2.filter(x => right.includes(x));
+        let u,v;
+        if (left1.length && right2.length) {
+          u = randomChoice(rng, left1); v = randomChoice(rng, right2);
+        } else {
+          u = randomChoice(rng, left); v = randomChoice(rng, right);
+        }
+        if (this.canAddEdge(graph,u,v,allowRepeatedEdges)) graph.addEdge(u,v);
+      }
+    }
+
+    buildRectangularGridGraph(config) {
+      const graph = this.makeGraph(false);
+      const m = config.specialM, p = config.specialP;
+      const labels = generateVertexLabels(m*p);
+      const nodeMap = {};
+      const positions = {};
+      let idx = 0;
+      for (let y=0;y<p;y++) {
+        for (let x=0;x<m;x++) {
+          const label = labels[idx++];
+          nodeMap[`${x},${y}`] = label;
+          graph.addNode(label);
+          positions[label] = [x * 1.5, -y * 1.5];
+        }
+      }
+      for (let y=0;y<p;y++) {
+        for (let x=0;x<m;x++) {
+          const u = nodeMap[`${x},${y}`];
+          if (x+1 < m) graph.addEdge(u, nodeMap[`${x+1},${y}`]);
+          if (y+1 < p) graph.addEdge(u, nodeMap[`${x},${y+1}`]);
+        }
+      }
+      return [graph, labels, positions];
+    }
+
+    buildCylindricalGridGraph(config) {
+      const graph = this.makeGraph(false);
+      const m = config.specialM, p = config.specialP;
+      const labels = generateVertexLabels(m*p);
+      const nodeMap = {};
+      const positions = {};
+      let idx = 0;
+      const radii = Array.from({length: Math.max(1,m)}, (_,i) => 1.6 + 1.35*i);
+      for (let r=0;r<m;r++) {
+        for (let a=0;a<p;a++) {
+          const label = labels[idx++];
+          const angle = 2 * Math.PI * a / p;
+          nodeMap[`${r},${a}`] = label;
+          graph.addNode(label);
+          positions[label] = [radii[r] * Math.cos(angle), radii[r] * Math.sin(angle)];
+        }
+      }
+      for (let r=0;r<m;r++) {
+        for (let a=0;a<p;a++) {
+          const u = nodeMap[`${r},${a}`];
+          graph.addEdge(u, nodeMap[`${r},${(a+1)%p}`]);
+          if (r+1 < m) graph.addEdge(u, nodeMap[`${r+1},${a}`]);
+        }
+      }
+      return [graph, labels, positions];
+    }
+
+    circleLayout(labels) {
+      const n = labels.length;
+      if (n === 1) return {[labels[0]]:[0,0]};
+      const out = {};
+      labels.forEach((label,i)=> out[label] = [Math.cos(2*Math.PI*i/n), Math.sin(2*Math.PI*i/n)]);
+      return out;
+    }
+
+    forceEulerPath(graph, allowRepeatedEdges) {
+      let odd = graph.nodes.filter(node => graph.degree(node) % 2 === 1);
+      while (odd.length > 2) {
+        const u = odd.pop();
+        const v = odd.pop();
+        if (allowRepeatedEdges || !graph.hasEdge(u,v)) graph.addEdge(u,v);
+      }
+    }
+
+    forceHamiltonPath(graph, allowRepeatedEdges) {
+      const nodes = graph.nodes.slice();
+      for (let i=0;i<nodes.length-1;i++) if (allowRepeatedEdges || !graph.hasEdge(nodes[i], nodes[i+1])) graph.addEdge(nodes[i], nodes[i+1]);
+    }
+
+    extractEdgeMetadata(graph, config, rng) {
+      const edgeIds = graph.edges.map(e => ({u:e.u, v:e.v, k:e.k}));
+      const edgeSlotMap = {};
+      edgeIds.forEach(edge => {
+        const full = graph.edges.find(e => e.u===edge.u && e.v===edge.v && e.k===edge.k);
+        edgeSlotMap[edgeKey(edge)] = full?.displaySlot || 0;
+      });
+      const incidentEdges = {};
+      graph.nodes.forEach(n => incidentEdges[n] = []);
+      const edgeOrientations = {};
+      edgeIds.forEach(edge => {
+        incidentEdges[edge.u].push(edge);
+        if (edge.u !== edge.v) incidentEdges[edge.v].push(edge);
+        if (config.directed) {
+          const full = graph.edges.find(e => e.u===edge.u && e.v===edge.v && e.k===edge.k) || {};
+          if (edge.u === edge.v) edgeOrientations[edgeKey(edge)] = [edge.u, edge.v];
+          else if (full.orientationHint) edgeOrientations[edgeKey(edge)] = full.orientationHint.slice();
+          else edgeOrientations[edgeKey(edge)] = rand01(rng) < 0.5 ? [edge.u, edge.v] : [edge.v, edge.u];
+        }
+      });
+      return {edgeIds, edgeSlotMap, incidentEdges, edgeOrientations};
+    }
+
+    computePairOffsets(edgeIds, edgeSlotMap={}) {
+      const groups = {};
+      edgeIds.forEach(edge => {
+        const key = unorderedPairKey(edge.u, edge.v);
+        (groups[key] ||= []).push(edge);
+      });
+      const offsets = {};
+      Object.values(groups).forEach(edges => {
+        if (edges.length === 1) offsets[edgeKey(edges[0])] = 0.0;
+        else {
+          const center = (edges.length - 1) / 2;
+          const ordered = edges.slice().sort((a,b)=>(edgeSlotMap[edgeKey(a)]||0) - (edgeSlotMap[edgeKey(b)]||0));
+          ordered.forEach((edge,i)=> offsets[edgeKey(edge)] = (i-center)*0.18);
+        }
+      });
+      return offsets;
+    }
+
+    computeValences(graph, edgeIds, edgeOrientations, directed=false) {
+      if (!directed) {
+        const out = {};
+        graph.nodes.forEach(n => out[n] = graph.degree(n));
+        return out;
+      }
+      const counts = {};
+      graph.nodes.forEach(n => counts[n] = [0,0]);
+      edgeIds.forEach(edge => {
+        const [frm,to] = edgeOrientations[edgeKey(edge)];
+        counts[frm][1] += 1;
+        counts[to][0] += 1;
+      });
+      return counts;
+    }
+
+    formatVertexWithValence(node, valences, directed, displayValence) {
+      if (!displayValence) return node;
+      if (directed) {
+        const [i,o] = valences[node];
+        return `${node}(${i},${o})`;
+      }
+      return `${node}(${valences[node]})`;
+    }
+
+    planarityText(bundle) { return bundle.isPlanar ? 'Planar' : 'Not planar'; }
+
+    hasEulerianPath(graph) {
+      if (!graph.isConnectedIgnoringIsolated()) return false;
+      const odd = graph.nodes.filter(n => graph.degree(n) % 2 === 1).length;
+      return odd === 0 || odd === 2;
+    }
+
+    bundleMatchesConstraints(bundle, config) {
+      const eulerExists = this.countEulerPaths(bundle, null, null, 1) !== 0;
+      const hamiltonExists = this.countHamiltonPaths(bundle, null, null, 1) !== 0;
+      const planar = !!bundle.isPlanar;
+      if (config.eulerPathFlag === 2 && !eulerExists) return false;
+      if (config.eulerPathFlag === 0 && eulerExists) return false;
+      if (config.hamiltonPathFlag === 2 && !hamiltonExists) return false;
+      if (config.hamiltonPathFlag === 0 && hamiltonExists) return false;
+      if (config.planarityFlag === 2 && !planar) return false;
+      if (config.planarityFlag === 0 && planar) return false;
+      return true;
+    }
+
+    countEulerPaths(bundle, start, end, limit=1000) {
+      const graph = bundle.graph;
+      const edgeIds = bundle.edgeIds;
+      const directed = Object.keys(bundle.edgeOrientations).length > 0;
+      if (edgeIds.length === 0) return (start == null || end == null || start === end) ? 1 : 0;
+      if (start != null && !graph.hasNode(start)) return 0;
+      if (end != null && !graph.hasNode(end)) return 0;
+      if (directed) {
+        const indeg = {}, outdeg = {};
+        graph.nodes.forEach(n => { indeg[n] = 0; outdeg[n] = 0; });
+        edgeIds.forEach(edge => {
+          const [frm,to] = bundle.edgeOrientations[edgeKey(edge)];
+          outdeg[frm] += 1; indeg[to] += 1;
+        });
+        const plusOne = graph.nodes.filter(n => outdeg[n] - indeg[n] === 1);
+        const minusOne = graph.nodes.filter(n => indeg[n] - outdeg[n] === 1);
+        const bad = graph.nodes.filter(n => Math.abs(outdeg[n] - indeg[n]) > 1);
+        if (bad.length) return 0;
+        if (!plusOne.length && !minusOne.length) {
+          const valid = graph.nodes.filter(n => indeg[n] + outdeg[n] > 0);
+          if (start != null && end != null && start !== end) return 0;
+          if (start != null && !valid.includes(start)) return 0;
+          if (end != null && !valid.includes(end)) return 0;
+        } else if (plusOne.length === 1 && minusOne.length === 1) {
+          if (start != null && start !== plusOne[0]) return 0;
+          if (end != null && end !== minusOne[0]) return 0;
+        } else return 0;
+
+        const adjacency = {};
+        graph.nodes.forEach(n => adjacency[n] = []);
+        edgeIds.forEach(edge => {
+          const [frm] = bundle.edgeOrientations[edgeKey(edge)];
+          adjacency[frm].push(edge);
+        });
+        const starts = start != null ? [start] : (plusOne.length ? plusOne : graph.nodes.filter(n => adjacency[n].length));
+        const used = new Set();
+        let count = 0;
+        const dfs = (current, usedCount) => {
+          if (count > limit) return;
+          if (usedCount === edgeIds.length) {
+            if (end == null || current === end) count += 1;
+            return;
+          }
+          for (const edge of adjacency[current]) {
+            const ek = edgeKey(edge);
+            if (used.has(ek)) continue;
+            const [,nxt] = bundle.edgeOrientations[ek];
+            used.add(ek);
+            dfs(nxt, usedCount + 1);
+            used.delete(ek);
+          }
+        };
+        for (const s of starts) { dfs(s,0); if (count > limit) break; }
+        return count > limit ? '> 1000' : count;
+      }
+
+      if (!this.hasEulerianPath(graph)) return 0;
+      const odd = graph.nodes.filter(n => graph.degree(n) % 2 === 1);
+      if (odd.length === 0) {
+        const valid = graph.nodes.filter(n => graph.degree(n) > 0);
+        if (start != null && end != null && start !== end) return 0;
+        if (start != null && !valid.includes(start)) return 0;
+        if (end != null && !valid.includes(end)) return 0;
+      } else if (odd.length === 2) {
+        const validSet = new Set(odd);
+        if (start != null && !validSet.has(start)) return 0;
+        if (end != null && !validSet.has(end)) return 0;
+        if (start != null && end != null && start === end) return 0;
+      } else return 0;
+
+      const adjacency = {};
+      graph.nodes.forEach(n => adjacency[n] = []);
+      edgeIds.forEach(edge => { adjacency[edge.u].push(edge); adjacency[edge.v].push(edge); });
+      const used = new Set(); let count = 0;
+      const starts = start != null ? [start] : (odd.length === 2 ? odd : graph.nodes.filter(n => adjacency[n].length));
+      const otherEnd = (edge,current) => edge.u === current ? edge.v : edge.u;
+      const dfs = (current, usedCount) => {
+        if (count > limit) return;
+        if (usedCount === edgeIds.length) { if (end == null || current === end) count += 1; return; }
+        for (const edge of adjacency[current]) {
+          const ek = edgeKey(edge);
+          if (used.has(ek)) continue;
+          used.add(ek);
+          dfs(otherEnd(edge,current), usedCount+1);
+          used.delete(ek);
+        }
+      };
+      for (const s of starts) { dfs(s,0); if (count > limit) break; }
+      return count > limit ? '> 1000' : count;
+    }
+
+    countHamiltonPaths(bundle, start, end, limit=1000) {
+      const graph = bundle.graph;
+      const nodes = graph.nodes.slice();
+      if (!nodes.length) return 0;
+      if (start != null && !graph.hasNode(start)) return 0;
+      if (end != null && !graph.hasNode(end)) return 0;
+      const directed = Object.keys(bundle.edgeOrientations).length > 0;
+      const countCircuits = (start != null && end != null && start === end);
+      const nodeToBit = {};
+      nodes.forEach((n,i)=> nodeToBit[n] = i);
+      const allMask = (1 << nodes.length) - 1;
+      const adjacency = {};
+      nodes.forEach(n => adjacency[n] = {});
+      if (directed) {
+        bundle.edgeIds.forEach(edge => {
+          const [frm,to] = bundle.edgeOrientations[edgeKey(edge)];
+          if (frm === to) return;
+          adjacency[frm][to] = (adjacency[frm][to] || 0) + 1;
+        });
+      } else {
+        bundle.edgeIds.forEach(edge => {
+          if (edge.u === edge.v) return;
+          adjacency[edge.u][edge.v] = (adjacency[edge.u][edge.v] || 0) + 1;
+          adjacency[edge.v][edge.u] = (adjacency[edge.v][edge.u] || 0) + 1;
+        });
+      }
+      const memo = new Map();
+      const dfs = (current, mask, startNode) => {
+        const key = `${current}|${mask}|${startNode}`;
+        if (memo.has(key)) return memo.get(key);
+        if (mask === allMask) {
+          const ans = countCircuits ? (adjacency[current][startNode] || 0) : ((end == null || current === end) ? 1 : 0);
+          memo.set(key, ans);
+          return ans;
+        }
+        let totalCount = 0;
+        for (const [nxt, mult] of Object.entries(adjacency[current])) {
+          const bit = 1 << nodeToBit[nxt];
+          if (mask & bit) continue;
+          const subtotal = dfs(nxt, mask | bit, startNode);
+          if (subtotal) {
+            totalCount += mult * subtotal;
+            if (totalCount > limit) { memo.set(key, limit + 1); return limit + 1; }
+          }
+        }
+        memo.set(key, totalCount);
+        return totalCount;
+      };
+      const starts = start != null ? [start] : nodes;
+      let total = 0;
+      for (const s of starts) {
+        total += dfs(s, 1 << nodeToBit[s], s);
+        if (total > limit) return '> 1000';
+      }
+      return total;
+    }
+
+    checkPlanarity(graph, config) {
+      const g = graph.simpleUnderlying();
+      try {
+        const exact = this.exactPlanarityCheck(g, config);
+        if (exact != null) {
+          return {isPlanar: exact, method: 'exact', note: ''};
+        }
+      } catch (err) {
+        const fallback = this.approximatePlanarityCheck(g, config);
+        return {isPlanar: fallback, method: 'approximate', note: 'Exact planarity check failed on this device/browser; using approximate check.'};
+      }
+      const fallback = this.approximatePlanarityCheck(g, config);
+      return {isPlanar: fallback, method: 'approximate', note: 'Exact planarity check unavailable for this graph size; using approximate check.'};
+    }
+
+    exactPlanarityCheck(graph, config) {
+      const g = graph.simpleUnderlying();
+      const n = g.numberOfNodes();
+      const m = g.numberOfEdges();
+      if (n <= 4) return true;
+      if (config.graphType === 2 || config.graphType === 3) return true;
+      if (!g.isConnectedIgnoringIsolated()) {
+        for (const comp of g.connectedComponents()) {
+          const sub = new SimpleGraph(false);
+          sub.addNodesFrom(comp);
+          g.edges.forEach(e => { if (comp.includes(e.u) && comp.includes(e.v)) sub.addEdge(e.u,e.v); });
+          const subAns = this.exactPlanarityCheck(sub, config);
+          if (subAns == null) return null;
+          if (!subAns) return false;
+        }
+        return true;
+      }
+      if (m > 3*n - 6) return false;
+      if (this.isBipartite(g) && m > 2*n - 4) return false;
+      if (config.complete) {
+        if (config.graphType === 0) return config.basicN <= 4;
+        if (config.graphType === 1) return Math.min(config.specialM, config.specialP) <= 2;
+      }
+      if (n > 11) return null;
+      const timedOut = () => (Date.now() - startTime) > timeBudgetMs;
+      const startTime = Date.now();
+      const timeBudgetMs = 120;
+      if (this.hasK5MinorExact(g, timedOut)) return false;
+      if (this.hasK33MinorExact(g, timedOut)) return false;
+      return true;
+    }
+
+    approximatePlanarityCheck(g, config) {
+      const n = g.numberOfNodes();
+      const m = g.numberOfEdges();
+      if (n <= 4) return true;
+      if (!g.isConnectedIgnoringIsolated()) {
+        return g.connectedComponents().every(comp => {
+          const sub = new SimpleGraph(false);
+          sub.addNodesFrom(comp);
+          g.edges.forEach(e => { if (comp.includes(e.u) && comp.includes(e.v)) sub.addEdge(e.u,e.v); });
+          return this.approximatePlanarityCheck(sub, config);
+        });
+      }
+      if (m > 3*n - 6) return false;
+      if (this.isBipartite(g) && m > 2*n - 4) return false;
+      if (config.graphType === 2 || config.graphType === 3) return true;
+      if (config.complete) {
+        if (config.graphType === 0) return config.basicN <= 4;
+        if (config.graphType === 1) return Math.min(config.specialM, config.specialP) <= 2;
+      }
+      if (this.containsK5(g)) return false;
+      if (this.containsK33(g)) return false;
+      return true;
+    }
+
+    hasK5MinorExact(graph, timedOut) {
+      return this.hasTargetMinorByPartitions(graph, 5, [[0,1],[0,2],[0,3],[0,4],[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]], timedOut);
+    }
+
+    hasK33MinorExact(graph, timedOut) {
+      return this.hasTargetMinorByPartitions(graph, 6, [[0,3],[0,4],[0,5],[1,3],[1,4],[1,5],[2,3],[2,4],[2,5]], timedOut);
+    }
+
+    hasTargetMinorByPartitions(graph, targetBins, requiredPairs, timedOut) {
+      const nodes = [...graph.nodes];
+      if (nodes.length < targetBins) return false;
+      const adj = {};
+      for (const node of nodes) adj[node] = new Set(graph.neighbors(node));
+      const bins = Array.from({length: targetBins}, () => []);
+      const assignment = new Map();
+      const order = [...nodes].sort((a,b) => graph.degree(b) - graph.degree(a));
+      const requiredByBin = Array.from({length: targetBins}, () => new Set());
+      for (const [a,b] of requiredPairs) { requiredByBin[a].add(b); requiredByBin[b].add(a); }
+
+      const binConnected = (binIndex) => {
+        const bin = bins[binIndex];
+        if (bin.length <= 1) return true;
+        const allowed = new Set(bin);
+        const stack = [bin[0]];
+        const seen = new Set([bin[0]]);
+        while (stack.length) {
+          const cur = stack.pop();
+          for (const nxt of adj[cur]) {
+            if (allowed.has(nxt) && !seen.has(nxt)) { seen.add(nxt); stack.push(nxt); }
+          }
+        }
+        return seen.size === bin.length;
+      };
+
+      const binsAdjacent = (i, j) => {
+        for (const u of bins[i]) for (const v of adj[u]) if (assignment.get(v) === j) return true;
+        return false;
+      };
+
+      const partialFeasible = () => {
+        const remaining = order.filter(n => !assignment.has(n)).length;
+        const emptyBins = bins.filter(b => b.length === 0).length;
+        if (remaining < emptyBins) return false;
+        for (let i = 0; i < targetBins; i++) {
+          if (bins[i].length > 0 && !binConnected(i)) return false;
+        }
+        for (const [a,b] of requiredPairs) {
+          if (bins[a].length > 0 && bins[b].length > 0) {
+            if (binsAdjacent(a,b)) continue;
+            let possible = false;
+            for (const u of bins[a]) {
+              for (const v of adj[u]) {
+                const bv = assignment.get(v);
+                if (bv == null || bv === b) { possible = true; break; }
+              }
+              if (possible) break;
+            }
+            if (!possible) {
+              for (const u of bins[b]) {
+                for (const v of adj[u]) {
+                  const bv = assignment.get(v);
+                  if (bv == null || bv === a) { possible = true; break; }
+                }
+                if (possible) break;
+              }
+            }
+            if (!possible) return false;
+          }
+        }
+        return true;
+      };
+
+      const finalValid = () => {
+        if (bins.some(b => b.length === 0)) return false;
+        for (let i = 0; i < targetBins; i++) if (!binConnected(i)) return false;
+        for (const [a,b] of requiredPairs) if (!binsAdjacent(a,b)) return false;
+        return true;
+      };
+
+      const dfs = (idx, usedBins) => {
+        if (timedOut()) throw new Error('planarity_exact_timeout');
+        if (idx === order.length) return finalValid();
+        const node = order[idx];
+        const maxBin = Math.min(targetBins - 1, usedBins);
+        for (let b = 0; b <= maxBin; b++) {
+          const wasEmpty = bins[b].length === 0;
+          if (wasEmpty && b !== usedBins) continue;
+          bins[b].push(node);
+          assignment.set(node, b);
+          if (partialFeasible()) {
+            const nextUsed = usedBins + (wasEmpty ? 1 : 0);
+            if (dfs(idx + 1, nextUsed)) return true;
+          }
+          assignment.delete(node);
+          bins[b].pop();
+        }
+        return false;
+      };
+
+      try {
+        return dfs(0, 0);
+      } catch (err) {
+        if (String(err && err.message) === 'planarity_exact_timeout') throw err;
+        throw err;
+      }
+    }
+
+    isBipartite(graph) {
+      const color = {};
+      for (const start of graph.nodes) {
+        if (color[start] != null) continue;
+        color[start] = 0;
+        const q = [start];
+        while (q.length) {
+          const cur = q.shift();
+          for (const nxt of graph.neighbors(cur)) {
+            if (color[nxt] == null) { color[nxt] = 1 - color[cur]; q.push(nxt); }
+            else if (color[nxt] === color[cur]) return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    containsK5(graph) {
+      if (graph.numberOfNodes() < 5) return false;
+      const nodes = graph.nodes;
+      const comb = (arr, k, start=0, prefix=[], out=[]) => {
+        if (prefix.length === k) { out.push(prefix.slice()); return out; }
+        for (let i=start;i<=arr.length-(k-prefix.length);i++) { prefix.push(arr[i]); comb(arr,k,i+1,prefix,out); prefix.pop(); }
+        return out;
+      };
+      for (const subset of comb(nodes,5)) {
+        let ok = true;
+        for (let i=0;i<subset.length;i++) for (let j=i+1;j<subset.length;j++) if (!graph.hasEdge(subset[i], subset[j])) ok = false;
+        if (ok) return true;
+      }
+      return false;
+    }
+
+    containsK33(graph) {
+      if (graph.numberOfNodes() < 6) return false;
+      const nodes = graph.nodes;
+      const comb = (arr, k, start=0, prefix=[], out=[]) => {
+        if (prefix.length === k) { out.push(prefix.slice()); return out; }
+        for (let i=start;i<=arr.length-(k-prefix.length);i++) { prefix.push(arr[i]); comb(arr,k,i+1,prefix,out); prefix.pop(); }
+        return out;
+      };
+      for (const subset of comb(nodes,6)) {
+        const sub = new SimpleGraph(false); sub.addNodesFrom(subset);
+        graph.edges.forEach(e => { if (subset.includes(e.u) && subset.includes(e.v)) sub.addEdge(e.u,e.v); });
+        if (!this.isBipartite(sub)) continue;
+        const part = {}; const q = [subset[0]]; part[subset[0]] = 0;
+        while (q.length) {
+          const cur = q.shift();
+          for (const nxt of sub.neighbors(cur)) if (part[nxt] == null) { part[nxt] = 1 - part[cur]; q.push(nxt); }
+        }
+        const left = subset.filter(n => part[n] === 0);
+        const right = subset.filter(n => part[n] === 1);
+        if (left.length !== 3 || right.length !== 3) continue;
+        let ok = true;
+        for (const u of left) for (const v of right) if (!sub.hasEdge(u,v)) ok = false;
+        if (ok) return true;
+      }
+      return false;
+    }
+  }
+
+  class App {
+    constructor() {
+      this.logic = new GraphLogic();
+      this.activeTab = 'Graph';
+      this.config = this.defaultConfig();
+      this.previousConfig = JSON.parse(JSON.stringify(this.config));
+      this.bundle = null;
+      this.graphDescription = null;
+      this.lastMainSignature = null;
+      this.dirtyGraph = true;
+      this.dirtyTable = true;
+      this.eulerTraceState = [];
+      this.hamiltonTraceState = [];
+      this.crossingEdgeCache = new Set();
+      this.draggingNode = null;
+      this.dragOffset = [0,0];
+      this.isPanning = false;
+      this.panLastSvgPoint = null;
+      this.activePointers = new Map();
+      this.pinchState = null;
+      this.viewport = null;
+      this.interactionMode = 'move';
+      this.initialViewport = null;
+      this.viewportAnimationFrame = null;
+      this.el = {};
+      this.cacheElements();
+      this.buildTabs();
+      if (!ENABLE_INSTRUCTOR_TAB) {
+        const instructorPanel = document.querySelector('.tab-panel[data-tab="Instructor"]');
+        if (instructorPanel) instructorPanel.classList.remove('active');
+      }
+      this.bindEvents();
+      this.writeConfigToUI(this.config);
+      this.updateInteractionModeUI();
+      const initialCode = this.readGraphCodeFromLocation();
+      if (initialCode) {
+        try {
+          this.loadGraphCode(initialCode, false);
+        } catch (e) {
+          console.warn(e);
+          this.refreshOutputsIfNeeded(true);
+        }
+      } else {
+        this.refreshOutputsIfNeeded(true);
+      }
+      this.showTab('Graph');
+    }
+
+    defaultConfig() {
+      const seed = randomSeed32();
+      return {
+        seed,
+        graphCode: '',
+        graphType: 0,
+        basicN: 7,
+        specialM: 4,
+        specialP: 5,
+        valenceMean: 3.0,
+        valenceStd: 2.0,
+        selfLoops: true,
+        allowRepeatedEdges: true,
+        directed: false,
+        complete: false,
+        displayValence: false,
+        displayEdgeLabels: false,
+        eulerPathFlag: 1,
+        eulerStart: 'A',
+        eulerEnd: 'A',
+        eulerTrace: false,
+        hamiltonPathFlag: 1,
+        hamiltonStart: 'A',
+        hamiltonEnd: 'A',
+        hamiltonTrace: false,
+        planarityFlag: 1,
+        planarityColor: false,
+      };
+    }
+
+    cacheElements() {
+      ['graphCode','basicN','specialM','specialP','valenceMean','valenceStd','selfLoops','allowRepeatedEdges','directed','complete','displayValence','displayEdgeLabels','eulerStart','eulerEnd','eulerTrace','hamiltonStart','hamiltonEnd','hamiltonTrace','planarityColor','instNumResults','instRestartAttempts','instOutput','countEulerBtn','countHamiltonBtn','checkPlanarityBtn','instGenerateBtn','reseedBtn','interactionModeToggle','moveModeLabel','panModeLabel','eulerResult','hamiltonResult','planarityResult','graphStats','graphSvg','edgeTable'].forEach(id => this.el[id] = document.getElementById(id));
+      this.el.graphCodeLabel = document.querySelector('label[for="graphCode"]');
+      this.el.selfLoopsRow = this.el.selfLoops ? this.el.selfLoops.closest('label') : null;
+      this.el.allowRepeatedEdgesRow = this.el.allowRepeatedEdges ? this.el.allowRepeatedEdges.closest('label') : null;
+      this.el.directedRow = this.el.directed ? this.el.directed.closest('label') : null;
+      this.el.completeRow = this.el.complete ? this.el.complete.closest('label') : null;
+      this.el.tabs = document.getElementById('tabs');
+      this.el.panels = [...document.querySelectorAll('.tab-panel')];
+      this.el.vertexList = document.getElementById('vertexList');
+      this.el.basicNLabel = document.getElementById('basicNLabel');
+      this.el.specialMLabel = document.getElementById('specialMLabel');
+      this.el.specialPLabel = document.getElementById('specialPLabel');
+      this.el.valenceMeanLabel = document.getElementById('valenceMeanLabel');
+      this.el.valenceStdLabel = document.getElementById('valenceStdLabel');
+      this.el.thEdge = document.getElementById('thEdge');
+      this.el.thFrom = document.getElementById('thFrom');
+      this.el.thTo = document.getElementById('thTo');
+      this.el.tableBody = this.el.edgeTable.querySelector('tbody');
+      this.el.graphTypeRadios = [...document.querySelectorAll('input[name="graphType"]')];
+    }
+
+    buildTabs() {
+      this.el.tabs.innerHTML = '';
+      TAB_NAMES.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = 'tab-btn';
+        btn.textContent = name;
+        btn.addEventListener('click', () => this.showTab(name));
+        this.el.tabs.appendChild(btn);
+      });
+    }
+
+    bindEvents() {
+      document.querySelectorAll('input, select').forEach(el => {
+        if (el.id === 'graphCode') return;
+        if (el.type === 'radio' || el.type === 'checkbox') {
+          if (el.name === 'graphType') {
+            el.addEventListener('change', (evt) => {
+              if (evt.target && evt.target.checked) this.onGraphTypeChanged(Number(evt.target.value));
+            });
+          } else {
+            el.addEventListener('change', () => this.onAnyInputChanged());
+          }
+        } else {
+          el.addEventListener('change', () => this.onAnyInputChanged());
+          el.addEventListener('blur', () => this.onAnyInputChanged());
+        }
+      });
+      this.el.graphCode.addEventListener('change', () => this.onGraphCodeEntered());
+      this.el.graphCode.addEventListener('blur', () => this.onGraphCodeEntered());
+      this.el.eulerTrace.addEventListener('change', () => this.onEulerTraceChanged());
+      this.el.hamiltonTrace.addEventListener('change', () => this.onHamiltonTraceChanged());
+      this.el.planarityColor.addEventListener('change', () => this.onPlanarityColorChanged());
+      this.el.countEulerBtn.addEventListener('click', () => this.onCountEuler());
+      this.el.countHamiltonBtn.addEventListener('click', () => this.onCountHamilton());
+      this.el.checkPlanarityBtn.addEventListener('click', () => this.onCheckPlanarity());
+      this.el.reseedBtn.addEventListener('click', () => this.onReseed());
+      this.el.interactionModeToggle.addEventListener('change', () => this.toggleInteractionMode());
+      this.el.instGenerateBtn.addEventListener('click', () => this.onGenerateInstructor());
+      this.el.tableBody.addEventListener('click', (e) => this.onTableClick(e));
+
+      const svg = this.el.graphSvg;
+      const getSvgPoint = evt => {
+        const rect = svg.getBoundingClientRect();
+        const x = (evt.clientX - rect.left) * (1000 / rect.width);
+        const y = (evt.clientY - rect.top) * (700 / rect.height);
+        return [x,y];
+      };
+      const midpoint = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const shouldMoveVertices = () => this.interactionMode === 'move';
+      const startInteraction = evt => {
+        if (!this.bundle) return;
+        this.cancelViewportAnimation();
+        this.activePointers.set(evt.pointerId, getSvgPoint(evt));
+        if (this.activePointers.size === 2) {
+          this.draggingNode = null;
+          this.isPanning = false;
+          if (shouldMoveVertices()) {
+            this.pinchState = null;
+            try { svg.setPointerCapture(evt.pointerId); } catch {}
+            evt.preventDefault();
+            return;
+          }
+          const pts = [...this.activePointers.values()];
+          this.pinchState = {
+            distance: distance(pts[0], pts[1]),
+            center: midpoint(pts[0], pts[1]),
+          };
+          try { svg.setPointerCapture(evt.pointerId); } catch {}
+          evt.preventDefault();
+          return;
+        }
+        if (this.activePointers.size > 1) return;
+        const [sx,sy] = getSvgPoint(evt);
+
+        if (shouldMoveVertices()) {
+          let node = null;
+          const nodeTarget = evt.target && evt.target.closest ? evt.target.closest('[data-node]') : null;
+          if (nodeTarget) node = nodeTarget.getAttribute('data-node');
+          if (!node) node = this.pickNode(sx, sy, evt.pointerType);
+          if (node) {
+            this.draggingNode = node;
+            const [nx,ny] = this.dataToScreen(this.bundle.positions[node]);
+            this.dragOffset = [sx - nx, sy - ny];
+          } else {
+            this.draggingNode = null;
+            this.isPanning = false;
+            this.panLastSvgPoint = null;
+          }
+        } else {
+          this.draggingNode = null;
+          this.isPanning = true;
+          this.panLastSvgPoint = [sx,sy];
+        }
+
+        try { svg.setPointerCapture(evt.pointerId); } catch {}
+        evt.preventDefault();
+      };
+      const moveInteraction = evt => {
+        if (!this.bundle || !this.viewport || !this.activePointers.has(evt.pointerId)) return;
+        const point = getSvgPoint(evt);
+        this.activePointers.set(evt.pointerId, point);
+        if (this.activePointers.size === 2) {
+          if (shouldMoveVertices()) {
+            evt.preventDefault();
+            return;
+          }
+          const pts = [...this.activePointers.values()];
+          const dist = distance(pts[0], pts[1]);
+          const center = midpoint(pts[0], pts[1]);
+          if (this.pinchState && this.pinchState.distance > 0 && dist > 0) {
+            const zoomFactor = this.pinchState.distance / dist;
+            this.zoomAtSvgPoint(center, zoomFactor);
+            const dx = center[0] - this.pinchState.center[0];
+            const dy = center[1] - this.pinchState.center[1];
+            this.panByScreenDelta(dx, dy);
+          }
+          this.pinchState = {distance: dist, center};
+          this.drawCurrentGraph(false);
+          evt.preventDefault();
+          return;
+        }
+        this.pinchState = null;
+        if (this.draggingNode) {
+          const data = this.screenToData([point[0] - this.dragOffset[0], point[1] - this.dragOffset[1]]);
+          this.bundle.positions[this.draggingNode] = data;
+          if (this.config.planarityColor) this.crossingEdgeCache = this.computeCrossingEdgeSet();
+          this.drawCurrentGraph(false);
+          evt.preventDefault();
+          return;
+        }
+        if (this.isPanning && this.panLastSvgPoint) {
+          const dx = point[0] - this.panLastSvgPoint[0];
+          const dy = point[1] - this.panLastSvgPoint[1];
+          this.panByScreenDelta(dx, dy);
+          this.panLastSvgPoint = point;
+          this.drawCurrentGraph(false);
+          evt.preventDefault();
+        }
+      };
+      const endInteraction = evt => {
+        this.activePointers.delete(evt.pointerId);
+        if (this.activePointers.size < 2) this.pinchState = null;
+        if (this.activePointers.size === 0) {
+          this.draggingNode = null;
+          this.isPanning = false;
+          this.panLastSvgPoint = null;
+        } else if (this.activePointers.size === 1 && !this.draggingNode) {
+          this.panLastSvgPoint = [...this.activePointers.values()][0];
+        }
+      };
+      const onWheel = evt => {
+        if (!this.bundle || !this.viewport || shouldMoveVertices()) return;
+        this.cancelViewportAnimation();
+        evt.preventDefault();
+        const point = getSvgPoint(evt);
+        const factor = evt.deltaY < 0 ? 0.9 : 1.1;
+        this.zoomAtSvgPoint(point, factor);
+        this.drawCurrentGraph(false);
+      };
+      svg.addEventListener('pointerdown', startInteraction);
+      window.addEventListener('pointermove', moveInteraction, {passive: false});
+      window.addEventListener('pointerup', endInteraction);
+      window.addEventListener('pointercancel', endInteraction);
+      svg.addEventListener('wheel', onWheel, {passive: false});
+      window.addEventListener('resize', () => { if (this.bundle) this.drawCurrentGraph(false); });
+    }
+
+    showTab(name) {
+      this.activeTab = name;
+      [...this.el.tabs.children].forEach(btn => btn.classList.toggle('active', btn.textContent === name));
+      this.el.panels.forEach(panel => panel.classList.toggle('active', panel.dataset.tab === name));
+      this.refreshOutputsIfNeeded(false);
+    }
+
+    getSelectedGraphType() {
+      const checked = document.querySelector('input[name="graphType"]:checked');
+      if (checked) return Number(checked.value);
+      return Number(this.config?.graphType ?? 0);
+    }
+
+    setSelectedGraphType(graphType) {
+      document.querySelectorAll('input[name="graphType"]').forEach(r => {
+        r.checked = Number(r.value) === Number(graphType);
+      });
+    }
+
+    readConfigFromUI() {
+      const selfLoops = !!this.el.selfLoops.checked;
+      const minimumN = selfLoops ? 1 : 2;
+      const graphType = this.getSelectedGraphType();
+      const eulerPathFlag = Number(document.querySelector('input[name="instEuler"]:checked')?.value || this.config.eulerPathFlag);
+      const hamiltonPathFlag = Number(document.querySelector('input[name="instHamilton"]:checked')?.value || this.config.hamiltonPathFlag);
+      const planarityFlag = Number(document.querySelector('input[name="instPlanarity"]:checked')?.value || this.config.planarityFlag);
+      return {
+        seed: this.config.seed >>> 0,
+        graphCode: (this.el.graphCode.value || '').trim(),
+        graphType,
+        basicN: clipInt(this.el.basicN.value, minimumN, 99),
+        specialM: clipInt(this.el.specialM.value, 1, 99),
+        specialP: clipInt(this.el.specialP.value, 1, 99),
+        valenceMean: clipFloat(this.el.valenceMean.value, 1.0, 99.0),
+        valenceStd: clipFloat(this.el.valenceStd.value, 0.0, 25.0),
+        selfLoops,
+        allowRepeatedEdges: !!this.el.allowRepeatedEdges.checked,
+        directed: !!this.el.directed.checked,
+        complete: !!this.el.complete.checked,
+        displayValence: !!this.el.displayValence.checked,
+        displayEdgeLabels: !!this.el.displayEdgeLabels.checked,
+        eulerPathFlag,
+        eulerStart: (this.el.eulerStart.value.trim().toUpperCase() || 'A'),
+        eulerEnd: (this.el.eulerEnd.value.trim().toUpperCase() || 'A'),
+        eulerTrace: !!this.el.eulerTrace.checked,
+        hamiltonPathFlag,
+        hamiltonStart: (this.el.hamiltonStart.value.trim().toUpperCase() || 'A'),
+        hamiltonEnd: (this.el.hamiltonEnd.value.trim().toUpperCase() || 'A'),
+        hamiltonTrace: !!this.el.hamiltonTrace.checked,
+        planarityFlag,
+        planarityColor: !!this.el.planarityColor.checked,
+      };
+    }
+
+    writeConfigToUI(c) {
+      this.el.graphCode.value = c.graphCode || '';
+      this.setSelectedGraphType(c.graphType);
+      document.querySelectorAll('input[name="instEuler"]').forEach(r => r.checked = Number(r.value) === c.eulerPathFlag);
+      document.querySelectorAll('input[name="instHamilton"]').forEach(r => r.checked = Number(r.value) === c.hamiltonPathFlag);
+      document.querySelectorAll('input[name="instPlanarity"]').forEach(r => r.checked = Number(r.value) === c.planarityFlag);
+      this.el.basicN.value = c.basicN;
+      this.el.specialM.value = c.specialM;
+      this.el.specialP.value = c.specialP;
+      this.el.valenceMean.value = c.valenceMean;
+      this.el.valenceStd.value = c.valenceStd;
+      this.el.selfLoops.checked = c.selfLoops;
+      this.el.allowRepeatedEdges.checked = c.allowRepeatedEdges;
+      this.el.directed.checked = c.directed;
+      this.el.complete.checked = c.complete;
+      this.el.displayValence.checked = c.displayValence;
+      this.el.displayEdgeLabels.checked = c.displayEdgeLabels;
+      this.el.eulerStart.value = c.eulerStart;
+      this.el.eulerEnd.value = c.eulerEnd;
+      this.el.eulerTrace.checked = c.eulerTrace;
+      this.el.hamiltonStart.value = c.hamiltonStart;
+      this.el.hamiltonEnd.value = c.hamiltonEnd;
+      this.el.hamiltonTrace.checked = c.hamiltonTrace;
+      this.el.planarityColor.checked = c.planarityColor;
+      this.el.instNumResults.value = this.el.instNumResults.value || '1';
+      this.el.instRestartAttempts.value = this.el.instRestartAttempts.value || String(this.logic.maxRetries);
+      this.updateGraphTypeVisibility();
+    }
+
+    updateGraphTypeVisibility() {
+      const graphType = this.getSelectedGraphType();
+      const isGrid = graphType === 2 || graphType === 3;
+      const isBipartite = graphType === 1;
+      const basicNRow = [this.el.basicNLabel, this.el.basicN];
+      const specialRows = [this.el.specialMLabel, this.el.specialM, this.el.specialPLabel, this.el.specialP];
+      if (graphType === 0) {
+        this.el.basicNLabel.textContent = 'Number of Vertices';
+        basicNRow.forEach(x => x.classList.remove('hidden'));
+        specialRows.forEach(x => x.classList.add('hidden'));
+      } else {
+        basicNRow.forEach(x => x.classList.add('hidden'));
+        specialRows.forEach(x => x.classList.remove('hidden'));
+        if (graphType === 1) {
+          this.el.specialMLabel.textContent = 'Number of Vertices in First Group';
+          this.el.specialPLabel.textContent = 'Number of Vertices in Second Group';
+        } else if (graphType === 2) {
+          this.el.specialMLabel.textContent = 'Number of Vertices along Width';
+          this.el.specialPLabel.textContent = 'Number of Vertices along Height';
+        } else {
+          this.el.specialMLabel.textContent = 'Number of Vertices along Radius';
+          this.el.specialPLabel.textContent = 'Number of Vertices around Circle';
+        }
+      }
+
+      if (isBipartite) this.el.selfLoops.checked = false;
+      if (isGrid) {
+        this.el.selfLoops.checked = false;
+        this.el.allowRepeatedEdges.checked = false;
+        this.el.directed.checked = false;
+        this.el.complete.checked = false;
+      }
+      const hideValence = isGrid || this.el.complete.checked;
+      [this.el.valenceMeanLabel, this.el.valenceMean, this.el.valenceStdLabel, this.el.valenceStd].forEach(x => x.classList.toggle('hidden', hideValence));
+      [this.el.reseedBtn].forEach(x => x && x.classList.toggle('hidden', isGrid || this.el.complete.checked));
+
+      if (this.el.selfLoops) this.el.selfLoops.disabled = isBipartite || isGrid || this.el.complete.checked;
+      if (this.el.allowRepeatedEdges) this.el.allowRepeatedEdges.disabled = isGrid || this.el.complete.checked;
+      if (this.el.directed) this.el.directed.disabled = isGrid;
+      if (this.el.complete) this.el.complete.disabled = isGrid;
+
+      [this.el.selfLoopsRow, this.el.allowRepeatedEdgesRow, this.el.directedRow, this.el.completeRow].forEach((row, idx) => {
+        if (!row) return;
+        const disabled = [
+          this.el.selfLoops?.disabled,
+          this.el.allowRepeatedEdges?.disabled,
+          this.el.directed?.disabled,
+          this.el.complete?.disabled
+        ][idx];
+        row.style.opacity = disabled ? '0.55' : '1';
+      });
+    }
+
+    mainSignature(c, ignoreLoadedCode=false) {
+      if (this.graphDescription && !ignoreLoadedCode) return `code:${GraphCodeCodec.encodeDescription(this.graphDescription)}`;
+      return JSON.stringify([c.seed,c.graphType,c.basicN,c.specialM,c.specialP,c.valenceMean,c.valenceStd,c.selfLoops,c.allowRepeatedEdges,c.directed,c.complete,c.eulerPathFlag,c.hamiltonPathFlag,c.planarityFlag]);
+    }
+
+    applyGraphTypeRules(newConfig) {
+      const completeTurnedOn = newConfig.complete && !this.config.complete;
+      const selfLoopsTurnedOn = newConfig.selfLoops && !this.config.selfLoops;
+      const repeatedTurnedOn = newConfig.allowRepeatedEdges && !this.config.allowRepeatedEdges;
+      const isGrid = newConfig.graphType === 2 || newConfig.graphType === 3;
+      const isBipartite = newConfig.graphType === 1;
+
+      if (isGrid) {
+        newConfig.complete = false;
+        newConfig.selfLoops = false;
+        newConfig.allowRepeatedEdges = false;
+        newConfig.directed = false;
+        newConfig.valenceMean = 3.0;
+        newConfig.valenceStd = 2.0;
+      }
+
+      if (isBipartite) {
+        newConfig.selfLoops = false;
+      }
+
+      if (completeTurnedOn || newConfig.complete) {
+        newConfig.selfLoops = false;
+        newConfig.allowRepeatedEdges = false;
+      }
+
+      if (selfLoopsTurnedOn || repeatedTurnedOn) {
+        newConfig.complete = false;
+      }
+
+      if (newConfig.eulerTrace) { newConfig.hamiltonTrace = false; newConfig.planarityColor = false; }
+      if (newConfig.hamiltonTrace) { newConfig.eulerTrace = false; newConfig.planarityColor = false; }
+      if (newConfig.planarityColor) { newConfig.eulerTrace = false; newConfig.hamiltonTrace = false; }
+      return newConfig;
+    }
+
+
+    structuralUiSignature(config) {
+      return JSON.stringify({
+        graphType: config.graphType,
+        basicN: config.basicN,
+        specialM: config.specialM,
+        specialP: config.specialP,
+        valenceMean: config.valenceMean,
+        valenceStd: config.valenceStd,
+        selfLoops: config.selfLoops,
+        allowRepeatedEdges: config.allowRepeatedEdges,
+        directed: config.directed,
+        complete: config.complete,
+      });
+    }
+
+    syncGraphCodeFromBundle() {
+      if (!this.bundle) return;
+      this.graphDescription = this.logic.bundleToGraphDescription(this.bundle, this.config);
+      this.config.graphCode = GraphCodeCodec.encodeDescription(this.graphDescription);
+      this.el.graphCode.value = this.config.graphCode;
+      this.writeGraphCodeToLocation(this.config.graphCode);
+    }
+
+    writeGraphCodeToLocation(code) {
+      try {
+        const url = new URL(window.location.href);
+        if (code) url.searchParams.set('code', code);
+        else url.searchParams.delete('code');
+        history.replaceState(null, '', url.toString());
+      } catch (e) {}
+    }
+
+    readGraphCodeFromLocation() {
+      try {
+        const url = new URL(window.location.href);
+        const queryCode = url.searchParams.get('code');
+        if (queryCode) return queryCode;
+        if (url.hash && url.hash.startsWith('#code=')) return decodeURIComponent(url.hash.slice(6));
+      } catch (e) {}
+      return '';
+    }
+
+    onGraphCodeEntered() {
+      const code = (this.el.graphCode.value || '').trim();
+      if (!code) {
+        this.el.graphCode.value = this.config.graphCode || '';
+        return;
+      }
+      try {
+        this.loadGraphCode(code, true);
+      } catch (e) {
+        alert('Unable to load graph code\n' + e.message);
+        this.el.graphCode.value = this.config.graphCode || '';
+      }
+    }
+
+
+
+    inferredValenceStatsFromDescription(desc) {
+      const labels = GraphCodeCodec.labelsForDescription(desc);
+      const degrees = new Array(labels.length).fill(0);
+      for (const edge of desc.edges) {
+        const u = edge.u;
+        const v = edge.v;
+        if (u === v) {
+          degrees[u] += 2;
+        } else {
+          degrees[u] += 1;
+          degrees[v] += 1;
+        }
+      }
+      if (!degrees.length) return {mean: 1.0, std: 0.0};
+      const mean = degrees.reduce((a,b)=>a+b,0) / degrees.length;
+      const variance = degrees.reduce((a,b)=>a + (b-mean)*(b-mean), 0) / degrees.length;
+      const std = Math.sqrt(variance);
+      const round1 = x => Math.round(x * 10) / 10;
+      return {mean: round1(mean), std: round1(std)};
+    }
+
+    loadGraphCode(code, forceRefresh=true) {
+      const desc = GraphCodeCodec.decodeCode(code);
+      const inferredStats = this.inferredValenceStatsFromDescription(desc);
+      const structural = {
+        graphType: desc.graphType,
+        basicN: desc.basicN || this.config.basicN,
+        specialM: desc.specialM || this.config.specialM,
+        specialP: desc.specialP || this.config.specialP,
+        selfLoops: desc.selfLoops,
+        allowRepeatedEdges: desc.allowRepeatedEdges,
+        directed: desc.directed,
+        complete: desc.complete,
+        valenceMean: inferredStats.mean,
+        valenceStd: inferredStats.std,
+      };
+      this.previousConfig = JSON.parse(JSON.stringify(this.config));
+      this.config = {...this.config, ...structural, graphCode: GraphCodeCodec.encodeDescription(desc)};
+      this.graphDescription = desc;
+      this.lastMainSignature = null;
+      this.bundle = null;
+      this.viewport = null;
+      this.initialViewport = null;
+      this.writeConfigToUI(this.config);
+      this.writeGraphCodeToLocation(this.config.graphCode);
+      this.hideComputationOutputs();
+      this.resetTraceState();
+      this.dirtyGraph = true;
+      this.dirtyTable = true;
+      if (forceRefresh) this.refreshOutputsIfNeeded(true);
+    }
+
+    onGraphTypeChanged(graphType) {
+      this.cancelViewportAnimation();
+      const previousConfig = JSON.parse(JSON.stringify(this.config));
+      this.setSelectedGraphType(graphType);
+      let newConfig = this.readConfigFromUI();
+      newConfig.graphType = Number(graphType);
+      newConfig = this.applyGraphTypeRules(newConfig);
+
+      const graphTypeChanged = Number(previousConfig.graphType) !== Number(newConfig.graphType);
+      const structuralChanged = this.structuralUiSignature(previousConfig) !== this.structuralUiSignature(newConfig);
+      const mainChanged = this.mainSignature(previousConfig, true) !== this.mainSignature(newConfig, true);
+
+      this.previousConfig = previousConfig;
+      this.config = newConfig;
+      this.writeConfigToUI(newConfig);
+      this.hideComputationOutputs();
+
+      if (graphTypeChanged || structuralChanged || mainChanged) {
+        this.graphDescription = null;
+        this.config.graphCode = '';
+        this.resetTraceState();
+        this.lastMainSignature = null;
+        this.viewport = null;
+        this.initialViewport = null;
+      }
+
+      this.dirtyGraph = true;
+      this.dirtyTable = true;
+      if (this.bundle) this.crossingEdgeCache = this.config.planarityColor ? this.computeCrossingEdgeSet() : new Set();
+
+      // Defer the rebuild until after the radio change has fully settled in the DOM.
+      // This avoids the selected graph family snapping back during the same event cascade.
+      window.setTimeout(() => {
+        try {
+          this.refreshOutputsIfNeeded(true);
+        } catch (e) {
+          console.error('Graph-type refresh failed', e);
+        }
+      }, 0);
+    }
+
+    onAnyInputChanged() {
+      this.cancelViewportAnimation();
+      try {
+        const oldConfig = JSON.parse(JSON.stringify(this.config));
+        let newConfig = this.readConfigFromUI();
+        newConfig.graphType = this.getSelectedGraphType();
+        newConfig = this.applyGraphTypeRules(newConfig);
+        if (JSON.stringify(newConfig) === JSON.stringify(this.config)) return;
+        const oldMain = this.mainSignature(this.config, true);
+        const newMain = this.mainSignature(newConfig, true);
+        const mainChanged = oldMain !== newMain;
+        const structuralChanged = this.structuralUiSignature(oldConfig) !== this.structuralUiSignature(newConfig);
+        const tracingWasOn = oldConfig.eulerTrace || oldConfig.hamiltonTrace;
+        const tracingNowOn = newConfig.eulerTrace || newConfig.hamiltonTrace;
+        const switchedTraceMode = (oldConfig.eulerTrace !== newConfig.eulerTrace) || (oldConfig.hamiltonTrace !== newConfig.hamiltonTrace);
+        this.previousConfig = JSON.parse(JSON.stringify(this.config));
+        this.config = newConfig;
+        this.writeConfigToUI(newConfig);
+        this.hideComputationOutputs();
+        if (structuralChanged || mainChanged) {
+          this.graphDescription = null;
+          this.config.graphCode = '';
+          this.lastMainSignature = null;
+        }
+        if (structuralChanged || mainChanged || (tracingWasOn && !tracingNowOn) || switchedTraceMode) this.resetTraceState();
+        this.dirtyGraph = true; this.dirtyTable = true;
+        if (this.bundle) this.crossingEdgeCache = this.config.planarityColor ? this.computeCrossingEdgeSet() : new Set();
+        this.refreshOutputsIfNeeded(structuralChanged || mainChanged);
+      } catch (e) {
+        this.writeConfigToUI(this.config);
+      }
+    }
+
+    toggleInteractionMode() {
+      this.cancelViewportAnimation();
+      this.interactionMode = this.interactionMode === 'move' ? 'pan' : 'move';
+      this.updateInteractionModeUI();
+      this.draggingNode = null;
+      this.isPanning = false;
+      this.panLastSvgPoint = null;
+      this.activePointers.clear();
+      this.pinchState = null;
+    }
+
+
+    updateInteractionModeUI() {
+      const move = this.interactionMode === 'move';
+      if (this.el.interactionModeToggle) this.el.interactionModeToggle.checked = !move;
+      if (this.el.moveModeLabel) this.el.moveModeLabel.classList.toggle('active', move);
+      if (this.el.panModeLabel) this.el.panModeLabel.classList.toggle('active', !move);
+      this.updateReseedButtonUI();
+    }
+
+    updateReseedButtonUI() {
+      if (!this.el.reseedBtn) return;
+      this.el.reseedBtn.textContent = this.interactionMode === 'pan' ? 'Reset' : 'Reseed';
+    }
+
+    updateInteractionModeButton() {
+      if (!this.el.interactionModeBtn) return;
+      const move = this.interactionMode === 'move';
+      this.el.interactionModeBtn.textContent = move ? 'Mode: Move Vertices' : 'Mode: Pan/Zoom';
+      this.el.interactionModeBtn.setAttribute('aria-pressed', move ? 'false' : 'true');
+    }
+
+    onReseed() {
+      if (this.interactionMode === 'pan') {
+        this.animateViewportReset();
+        return;
+      }
+      this.cancelViewportAnimation();
+      this.graphDescription = null;
+      this.config.seed = nextDeterministicSeed(this.config.seed || 1);
+      this.config.graphCode = '';
+      this.previousConfig = JSON.parse(JSON.stringify(this.config));
+      this.hideComputationOutputs();
+      this.resetTraceState();
+      this.dirtyGraph = true;
+      this.dirtyTable = true;
+      this.refreshOutputsIfNeeded(true);
+    }
+    onEulerTraceChanged() {
+      if (this.el.eulerTrace.checked) { this.el.hamiltonTrace.checked = false; this.el.planarityColor.checked = false; }
+      this.resetTraceState();
+      this.onAnyInputChanged();
+    }
+    onHamiltonTraceChanged() {
+      if (this.el.hamiltonTrace.checked) { this.el.eulerTrace.checked = false; this.el.planarityColor.checked = false; }
+      this.resetTraceState();
+      this.onAnyInputChanged();
+    }
+    onPlanarityColorChanged() {
+      if (this.el.planarityColor.checked) { this.el.eulerTrace.checked = false; this.el.hamiltonTrace.checked = false; }
+      this.onAnyInputChanged();
+    }
+    hideComputationOutputs() {
+      [this.el.eulerResult, this.el.hamiltonResult, this.el.planarityResult].forEach(el => { el.style.display = 'none'; el.textContent = ''; });
+    }
+    resetTraceState() { this.eulerTraceState = []; this.hamiltonTraceState = []; }
+
+    refreshOutputsIfNeeded(force=false) {
+      const selected = force ? 'Graph' : this.activeTab;
+      const needsBundle = force || ((selected === 'Graph' || selected === 'Table') && (this.dirtyGraph || this.dirtyTable || !this.bundle));
+      if (needsBundle) {
+        try {
+          if (ENABLE_INSTRUCTOR_TAB) this.logic.maxRetries = clipInt(this.el.instRestartAttempts.value || 100, 1, 100000);
+          const oldBundle = this.bundle;
+          const oldSignature = this.lastMainSignature;
+          const newBundle = this.graphDescription ? this.logic.buildBundleFromDescription(this.graphDescription, this.config) : this.logic.buildGraphBundle(this.config);
+          const newSignature = this.mainSignature(this.config);
+          const sameGraph = oldSignature === newSignature;
+          const oldViewport = this.viewport ? JSON.parse(JSON.stringify(this.viewport)) : null;
+          if (sameGraph && oldBundle) {
+            const oldNodes = new Set(oldBundle.graph.nodes), newNodes = new Set(newBundle.graph.nodes);
+            if (oldNodes.size === newNodes.size && [...oldNodes].every(n => newNodes.has(n))) {
+              Object.keys(newBundle.positions).forEach(node => newBundle.positions[node] = oldBundle.positions[node]);
+            }
+          }
+          this.bundle = newBundle;
+          if (!this.graphDescription) this.syncGraphCodeFromBundle();
+          this.lastMainSignature = newSignature;
+          this.viewport = (sameGraph && oldViewport) ? oldViewport : null;
+          if (!sameGraph) this.initialViewport = null;
+          this.sanitizeVertexDropdowns();
+          this.crossingEdgeCache = this.config.planarityColor ? this.computeCrossingEdgeSet() : new Set();
+          if (sameGraph) {
+            const eSet = new Set(this.bundle.edgeIds.map(edgeKey));
+            this.eulerTraceState = this.eulerTraceState.filter(e => eSet.has(edgeKey(e)));
+            const nSet = new Set(this.bundle.graph.nodes);
+            this.hamiltonTraceState = this.hamiltonTraceState.filter(n => nSet.has(n));
+          } else this.resetTraceState();
+        } catch (e) {
+          alert('Unable to build graph:\n' + e.message);
+          this.writeConfigToUI(this.previousConfig);
+          this.config = JSON.parse(JSON.stringify(this.previousConfig));
+          return;
+        }
+      }
+      if (force || selected === 'Graph') {
+        if (this.dirtyGraph || force) this.drawCurrentGraph();
+        if (this.bundle) this.el.graphStats.textContent = `Vertices: ${this.bundle.graph.numberOfNodes()}    Edges: ${this.bundle.graph.numberOfEdges()}`;
+        this.dirtyGraph = false;
+      }
+      if (force || selected === 'Table') {
+        if (this.dirtyTable || force) this.refreshTable();
+        this.dirtyTable = false;
+      }
+    }
+
+    sanitizeVertexDropdowns() {
+      if (!this.bundle) return;
+      const labels = this.bundle.graph.nodes.slice();
+      this.el.vertexList.innerHTML = labels.map(v => `<option value="${v}"></option>`).join('');
+      this.config.eulerStart = this.clipVertexLabel(this.config.eulerStart, labels);
+      this.config.eulerEnd = this.clipVertexLabel(this.config.eulerEnd, labels);
+      this.config.hamiltonStart = this.clipVertexLabel(this.config.hamiltonStart, labels);
+      this.config.hamiltonEnd = this.clipVertexLabel(this.config.hamiltonEnd, labels);
+      this.el.eulerStart.value = this.config.eulerStart;
+      this.el.eulerEnd.value = this.config.eulerEnd;
+      this.el.hamiltonStart.value = this.config.hamiltonStart;
+      this.el.hamiltonEnd.value = this.config.hamiltonEnd;
+    }
+    clipVertexLabel(value, labels) {
+      if (!labels.length) return '';
+      const s = (value || '').trim().toUpperCase();
+      if (labels.includes(s)) return s;
+      try {
+        let n = 0;
+        for (const ch of s) { if (ch < 'A' || ch > 'Z') throw new Error(); n = n*26 + (ch.charCodeAt(0)-64); }
+        const idx = Math.max(0, Math.min(labels.length - 1, n - 1));
+        return labels[idx];
+      } catch { return labels[0]; }
+    }
+
+    onCountEuler() {
+      if (this.dirtyGraph || !this.bundle) this.refreshOutputsIfNeeded(true);
+      const result = this.logic.countEulerPaths(this.bundle, this.config.eulerStart, this.config.eulerEnd);
+      this.el.eulerResult.textContent = `Number of Euler ${this.config.eulerStart === this.config.eulerEnd ? 'circuits' : 'paths'}: ${result}`;
+      this.el.eulerResult.style.display = 'block';
+    }
+    onCountHamilton() {
+      if (this.dirtyGraph || !this.bundle) this.refreshOutputsIfNeeded(true);
+      const result = this.logic.countHamiltonPaths(this.bundle, this.config.hamiltonStart, this.config.hamiltonEnd);
+      this.el.hamiltonResult.textContent = `Number of Hamilton ${this.config.hamiltonStart === this.config.hamiltonEnd ? 'circuits' : 'paths'}: ${result}`;
+      this.el.hamiltonResult.style.display = 'block';
+    }
+    onCheckPlanarity() {
+      if (this.dirtyGraph || !this.bundle) this.refreshOutputsIfNeeded(true);
+      let text = `Planarity: ${this.logic.planarityText(this.bundle)}`;
+      if (this.bundle.planarityMethod === 'approximate' && this.bundle.planarityNote) {
+        text += ` (${this.bundle.planarityNote})`;
+      }
+      this.el.planarityResult.textContent = text;
+      this.el.planarityResult.style.display = 'block';
+    }
+    onGenerateInstructor() {
+      const numResults = clipInt(this.el.instNumResults.value || 1, 1, 1000);
+      const restartAttempts = clipInt(this.el.instRestartAttempts.value || 100, 1, 100000);
+      this.logic.maxRetries = restartAttempts;
+      const baseConfig = this.readConfigFromUI();
+      const found = [];
+      const seen = new Set();
+      const rng = new PythonRandom(baseConfig.seed >>> 0);
+      const maxSeedTrials = Math.max(500, numResults * 500);
+      for (let i=0;i<maxSeedTrials && found.length < numResults;i++) {
+        const seed = randInt(rng, 0, 2147483647);
+        if (seen.has(seed)) continue;
+        seen.add(seed);
+        const cfg = JSON.parse(JSON.stringify(baseConfig));
+        cfg.seed = seed;
+        try {
+          const bundle = this.logic.buildGraphBundle(cfg);
+          if (this.logic.bundleMatchesConstraints(bundle, cfg)) found.push(GraphCodeCodec.encodeDescription(this.logic.bundleToGraphDescription(bundle, cfg)));
+        } catch {}
+      }
+      this.el.instOutput.value = found.length ? found.join('\n') : 'No matching graph codes found with the current settings.';
+    }
+
+    extractVertexName(textValue) {
+      if (!textValue) return null;
+      let s = String(textValue).trim();
+      while (s.includes('. ')) {
+        const idx = s.indexOf('. ');
+        const prefix = s.slice(0, idx).trim();
+        if (/^\d+$/.test(prefix)) s = s.slice(idx + 2).trim();
+        else break;
+      }
+      if (s.includes('(')) s = s.split('(',1)[0];
+      return s.trim();
+    }
+
+    refreshTable() {
+      this.el.tableBody.innerHTML = '';
+      if (!this.bundle) return;
+      this.el.thEdge.textContent = this.config.displayEdgeLabels ? 'Edge' : '';
+      if (this.config.directed) {
+        this.el.thFrom.textContent = this.config.displayValence ? 'From Vertex (In-Valence, Out-Valence)' : 'From Vertex';
+        this.el.thTo.textContent = this.config.displayValence ? 'To Vertex (In-Valence, Out-Valence)' : 'To Vertex';
+      } else {
+        this.el.thFrom.textContent = this.config.displayValence ? 'Vertex (Valence)' : 'Vertex';
+        this.el.thTo.textContent = this.config.displayValence ? 'Vertex (Valence)' : 'Vertex';
+      }
+      const hOrder = {};
+      this.hamiltonTraceState.forEach((node,i)=> hOrder[node] = i+1);
+      this.bundle.tableRows.forEach((row,idx) => {
+        const edge = this.bundle.edgeIds[idx];
+        const tr = document.createElement('tr');
+        const leftNode = this.extractVertexName(row[1]);
+        const rightNode = this.extractVertexName(row[2]);
+        let edgeDisplay = row[0];
+        if (this.config.eulerTrace && this.eulerTraceState.findIndex(e => edgeKey(e) === edgeKey(edge)) >= 0) {
+          const order = this.eulerTraceState.findIndex(e => edgeKey(e) === edgeKey(edge)) + 1;
+          edgeDisplay = `${order}. ${row[0] || '[edge]'}`;
+          tr.classList.add('euler-selected');
+        }
+        let leftDisplay = row[1], rightDisplay = row[2];
+        if (this.config.hamiltonTrace) {
+          if (hOrder[leftNode]) { leftDisplay = `${hOrder[leftNode]}. ${row[1]}`; tr.classList.add('hamilton-selected'); }
+          if (hOrder[rightNode]) { rightDisplay = `${hOrder[rightNode]}. ${row[2]}`; tr.classList.add('hamilton-selected'); }
+        }
+        tr.dataset.edgeIndex = idx;
+        tr.innerHTML = `<td>${edgeDisplay}</td><td data-col="2">${leftDisplay}</td><td data-col="3">${rightDisplay}</td>`;
+        this.el.tableBody.appendChild(tr);
+      });
+    }
+
+    onTableClick(event) {
+      if (!this.bundle) return;
+      const tr = event.target.closest('tr');
+      if (!tr) return;
+      const idx = Number(tr.dataset.edgeIndex);
+      const edge = this.bundle.edgeIds[idx];
+      if (this.config.eulerTrace) {
+        this.handleEulerTableClick(edge);
+        this.refreshTable();
+        return;
+      }
+      if (this.config.hamiltonTrace) {
+        const td = event.target.closest('td');
+        if (!td || !['2','3'].includes(td.dataset.col)) return;
+        const node = this.extractVertexName(td.textContent);
+        if (node) {
+          this.handleHamiltonTableClick(node);
+          this.refreshTable();
+          this.drawCurrentGraph();
+        }
+      }
+    }
+
+    handleEulerTableClick(edge) {
+      const idx = this.eulerTraceState.findIndex(e => edgeKey(e) === edgeKey(edge));
+      if (idx >= 0) { this.eulerTraceState = this.eulerTraceState.slice(0, idx); this.drawCurrentGraph(); return; }
+      const directed = Object.keys(this.bundle.edgeOrientations).length > 0;
+      const graph = this.bundle.graph;
+      let nextVertex;
+      if (directed) {
+        const [frm,to] = this.bundle.edgeOrientations[edgeKey(edge)];
+        if (!this.eulerTraceState.length) {
+          if (frm !== this.config.eulerStart) return;
+          if (graph.numberOfEdges() === 1 && to !== this.config.eulerEnd) return;
+          this.eulerTraceState.push(edge); this.drawCurrentGraph(); return;
+        }
+        const currentVertex = this.bundle.edgeOrientations[edgeKey(this.eulerTraceState[this.eulerTraceState.length - 1])][1];
+        if (frm !== currentVertex) return;
+        nextVertex = to;
+      } else {
+        const {u,v} = edge;
+        if (!this.eulerTraceState.length) {
+          if (![u,v].includes(this.config.eulerStart)) return;
+          if (graph.numberOfEdges() === 1 && ![u,v].includes(this.config.eulerEnd)) return;
+          this.eulerTraceState.push(edge); this.drawCurrentGraph(); return;
+        }
+        const currentVertex = this.currentUndirectedTraceEndpoint();
+        if (![u,v].includes(currentVertex)) return;
+        nextVertex = (u === currentVertex) ? v : u;
+      }
+      const isLast = (this.eulerTraceState.length + 1 === graph.numberOfEdges());
+      if (isLast && nextVertex !== this.config.eulerEnd) return;
+      this.eulerTraceState.push(edge);
+      this.drawCurrentGraph();
+    }
+
+    handleHamiltonTableClick(node) {
+      if (!this.bundle.graph.nodes.includes(node)) return;
+      const idx = this.hamiltonTraceState.indexOf(node);
+      if (idx >= 0) { this.hamiltonTraceState = this.hamiltonTraceState.slice(0, idx); return; }
+      if (!this.hamiltonTraceState.length) {
+        if (node !== this.config.hamiltonStart) return;
+        this.hamiltonTraceState.push(node); return;
+      }
+      const prev = this.hamiltonTraceState[this.hamiltonTraceState.length - 1];
+      if (this.config.directed) {
+        const allowed = Object.values(this.bundle.edgeOrientations).some(([frm,to]) => frm === prev && to === node);
+        if (!allowed) return;
+      } else if (!this.bundle.graph.hasEdge(prev, node)) return;
+      if (this.hamiltonTraceState.length + 1 === this.bundle.graph.numberOfNodes() && node !== this.config.hamiltonEnd) return;
+      this.hamiltonTraceState.push(node);
+    }
+
+    currentUndirectedTraceEndpoint() {
+      let endpoint = this.config.eulerStart;
+      for (const edge of this.eulerTraceState) endpoint = (endpoint === edge.u) ? edge.v : edge.u;
+      return endpoint;
+    }
+
+    computeCrossingEdgeSet() {
+      if (!this.bundle) return new Set();
+      const crossing = new Set();
+      const edges = this.bundle.edgeIds;
+      for (let i=0;i<edges.length;i++) {
+        const e1 = edges[i];
+        if (e1.u === e1.v) continue;
+        const p1 = this.bundle.positions[e1.u], p2 = this.bundle.positions[e1.v];
+        for (let j=i+1;j<edges.length;j++) {
+          const e2 = edges[j];
+          if (e2.u === e2.v) continue;
+          if (new Set([e1.u,e1.v,e2.u,e2.v]).size < 4) continue;
+          const p3 = this.bundle.positions[e2.u], p4 = this.bundle.positions[e2.v];
+          if (this.segmentsCross(p1,p2,p3,p4)) { crossing.add(edgeKey(e1)); crossing.add(edgeKey(e2)); }
+        }
+      }
+      return crossing;
+    }
+    segmentsCross(p1,p2,p3,p4) {
+      const orient = (a,b,c) => (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+      const o1 = orient(p1,p2,p3), o2 = orient(p1,p2,p4), o3 = orient(p3,p4,p1), o4 = orient(p3,p4,p2);
+      return (o1*o2 < 0) && (o3*o4 < 0);
+    }
+
+    cancelViewportAnimation() {
+      if (this.viewportAnimationFrame !== null) {
+        cancelAnimationFrame(this.viewportAnimationFrame);
+        this.viewportAnimationFrame = null;
+      }
+    }
+
+    cloneViewport(vp) {
+      return vp ? {minX:vp.minX, maxX:vp.maxX, minY:vp.minY, maxY:vp.maxY, w:vp.w, h:vp.h, pad:vp.pad} : null;
+    }
+
+    interpolateViewport(a, b, t) {
+      return {
+        minX: a.minX + (b.minX - a.minX) * t,
+        maxX: a.maxX + (b.maxX - a.maxX) * t,
+        minY: a.minY + (b.minY - a.minY) * t,
+        maxY: a.maxY + (b.maxY - a.maxY) * t,
+        w: b.w,
+        h: b.h,
+        pad: b.pad,
+      };
+    }
+
+    animateViewportReset() {
+      if (!this.viewport || !this.initialViewport) return;
+      this.cancelViewportAnimation();
+      const start = this.cloneViewport(this.viewport);
+      const target = this.cloneViewport(this.initialViewport);
+      const duration = 260;
+      const ease = t => 1 - Math.pow(1 - t, 3);
+      const startTime = performance.now();
+
+      const step = now => {
+        const raw = Math.min(1, (now - startTime) / duration);
+        const t = ease(raw);
+        this.viewport = this.interpolateViewport(start, target, t);
+        this.drawCurrentGraph(false);
+        if (raw < 1) {
+          this.viewportAnimationFrame = requestAnimationFrame(step);
+        } else {
+          this.viewport = this.cloneViewport(target);
+          this.viewportAnimationFrame = null;
+          this.drawCurrentGraph(false);
+        }
+      };
+
+      this.viewportAnimationFrame = requestAnimationFrame(step);
+    }
+
+    computeViewport(force=false) {
+      if (this.viewport && !force) return;
+      const xs = Object.values(this.bundle.positions).map(p => p[0]);
+      const ys = Object.values(this.bundle.positions).map(p => p[1]);
+      const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+      const width = Math.max(1.0, maxX - minX), height = Math.max(1.0, maxY - minY);
+      const padX = Math.max(1.0, 0.35 * width), padY = Math.max(1.0, 0.35 * height);
+      const fullMinX = minX - padX, fullMaxX = maxX + padX, fullMinY = minY - padY, fullMaxY = maxY + padY;
+      this.viewport = {minX:fullMinX,maxX:fullMaxX,minY:fullMinY,maxY:fullMaxY,w:1000,h:700,pad:55};
+      this.initialViewport = this.cloneViewport(this.viewport);
+      this.baseViewportSpan = {
+        x: Math.max(1e-6, fullMaxX - fullMinX),
+        y: Math.max(1e-6, fullMaxY - fullMinY),
+      };
+    }
+
+    visualZoomScale() {
+      if (!this.viewport || !this.baseViewportSpan) return 1;
+      const currentX = Math.max(1e-6, this.viewport.maxX - this.viewport.minX);
+      const currentY = Math.max(1e-6, this.viewport.maxY - this.viewport.minY);
+      const zx = this.baseViewportSpan.x / currentX;
+      const zy = this.baseViewportSpan.y / currentY;
+      return Math.max(1, Math.min(10.0, Math.min(zx, zy)));
+    }
+
+    nodeVisualRadius() {
+      return Math.max(24, Math.min(120, 24 * Math.pow(this.visualZoomScale(), 0.68)));
+    }
+
+    nodeLabelFontSize() {
+      return Math.max(12, Math.min(80, 12 * Math.pow(this.visualZoomScale(), 0.72)));
+    }
+
+    edgeLabelFontSize() {
+      return Math.max(13, Math.min(64, 13 * Math.pow(this.visualZoomScale(), 0.58)));
+    }
+
+    traceFontSize() {
+      return Math.max(14, Math.min(68, 14 * Math.pow(this.visualZoomScale(), 0.60)));
+    }
+    panByScreenDelta(dx, dy) {
+      const vp = this.viewport;
+      const usableW = vp.w - 2 * vp.pad;
+      const usableH = vp.h - 2 * vp.pad;
+      const dataDx = -(dx / usableW) * (vp.maxX - vp.minX);
+      const dataDy = (dy / usableH) * (vp.maxY - vp.minY);
+      vp.minX += dataDx; vp.maxX += dataDx;
+      vp.minY += dataDy; vp.maxY += dataDy;
+    }
+    zoomAtSvgPoint(point, factor) {
+      const vp = this.viewport;
+      const clamped = Math.max(0.5, Math.min(2.0, factor));
+      const anchor = this.screenToData(point);
+      vp.minX = anchor[0] + (vp.minX - anchor[0]) * clamped;
+      vp.maxX = anchor[0] + (vp.maxX - anchor[0]) * clamped;
+      vp.minY = anchor[1] + (vp.minY - anchor[1]) * clamped;
+      vp.maxY = anchor[1] + (vp.maxY - anchor[1]) * clamped;
+    }
+    dataToScreen([x,y]) {
+      const vp = this.viewport;
+      const sx = vp.pad + ((x - vp.minX) / (vp.maxX - vp.minX)) * (vp.w - 2*vp.pad);
+      const sy = vp.h - vp.pad - ((y - vp.minY) / (vp.maxY - vp.minY)) * (vp.h - 2*vp.pad);
+      return [sx, sy];
+    }
+    screenToData([sx,sy]) {
+      const vp = this.viewport;
+      const x = vp.minX + ((sx - vp.pad) / (vp.w - 2*vp.pad)) * (vp.maxX - vp.minX);
+      const y = vp.minY + ((vp.h - vp.pad - sy) / (vp.h - 2*vp.pad)) * (vp.maxY - vp.minY);
+      return [x,y];
+    }
+
+    curvedMidpoint(p1,p2,rad) {
+      const [x1,y1]=p1,[x2,y2]=p2;
+      const mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1;
+      const len=Math.hypot(dx,dy); if (!len) return [mx,my];
+      const nx=-dy/len, ny=dx/len, bow=rad*len*0.5;
+      return [mx+nx*bow,my+ny*bow];
+    }
+    selfLoopGeometry(edge) {
+      const rawOffset = this.bundle.pairOffsets[edgeKey(edge)] || 0;
+      const [x,y] = this.bundle.positions[edge.u];
+      const loopIndex = rawOffset / 0.18;
+
+      // Anchor loop endpoints at the vertex center so the node itself hides
+      // the attachment points. This prevents the loop from appearing to float
+      // away from the vertex during zooming or at different stroke widths.
+      const angle = -Math.PI / 2 + loopIndex * 0.52;
+      const baseRadius = 0.68 + 0.16 * Math.abs(loopIndex);
+      const lobeOffset = 0.34;
+      const tangentialPush = 0.14 * loopIndex;
+
+      const start = [x, y];
+      const end = [x, y];
+      const c1 = [
+        x + baseRadius * Math.cos(angle - lobeOffset) - tangentialPush * Math.sin(angle),
+        y + baseRadius * Math.sin(angle - lobeOffset) + tangentialPush * Math.cos(angle)
+      ];
+      const c2 = [
+        x + baseRadius * Math.cos(angle + lobeOffset) + tangentialPush * Math.sin(angle),
+        y + baseRadius * Math.sin(angle + lobeOffset) - tangentialPush * Math.cos(angle)
+      ];
+      const mid = [x + (baseRadius + 0.08) * Math.cos(angle), y + (baseRadius + 0.08) * Math.sin(angle)];
+      return {start, end, c1, c2, mid, angle, radius: baseRadius};
+    }
+
+    edgeDrawGeometry(edge) {
+      const rawOffset = this.bundle.pairOffsets[edgeKey(edge)] || 0;
+      if (edge.u === edge.v) {
+        const loop = this.selfLoopGeometry(edge);
+        return {...loop, rad:0.0, displayStartNode: edge.u, displayEndNode: edge.v};
+      }
+      // Match the Python tool's display model: the rendered curve should use a
+      // stable endpoint order for an unordered pair, while direction is handled
+      // separately by edgeOrientations. Without this, opposite-order parallel
+      // edges can mirror onto each other and visually overlap.
+      const [du, dv] = canonicalDisplayEndpoints(edge.u, edge.v);
+      const p1 = this.bundle.positions[du], p2 = this.bundle.positions[dv];
+      return {start:p1, end:p2, rad:rawOffset, mid:this.curvedMidpoint(p1,p2,rawOffset), displayStartNode: du, displayEndNode: dv};
+    }
+    quadraticControlPoint(edge) {
+      // Keep repeated-edge separation in screen space, matching the rendered
+      // geometry more closely to the Python version. If the control point is
+      // computed only in data coordinates, non-uniform x/y scaling can cause
+      // distinct curved edges to collapse visually into one another.
+      const geom = this.edgeDrawGeometry(edge);
+      const start = this.dataToScreen(geom.start);
+      const end = this.dataToScreen(geom.end);
+      const rad = geom.rad;
+      const mx = (start[0] + end[0]) / 2;
+      const my = (start[1] + end[1]) / 2;
+      const dx = end[0] - start[0];
+      const dy = end[1] - start[1];
+      const len = Math.hypot(dx, dy);
+      if (!len) return [mx, my];
+      const nx = -dy / len;
+      const ny = dx / len;
+      const bow = rad * len * 0.5;
+      return [mx + 2 * nx * bow, my + 2 * ny * bow];
+    }
+
+    edgePathD(edge) {
+      const geom = this.edgeDrawGeometry(edge);
+      const [sx,sy] = this.dataToScreen(geom.start);
+      const [ex,ey] = this.dataToScreen(geom.end);
+      if (edge.u === edge.v) {
+        const [c1x,c1y] = this.dataToScreen(geom.c1);
+        const [c2x,c2y] = this.dataToScreen(geom.c2);
+        return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`;
+      }
+      const [cx,cy] = this.quadraticControlPoint(edge);
+      return `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
+    }
+
+    edgeLabelPosition(edge) {
+      if (edge.u === edge.v) {
+        const geom = this.edgeDrawGeometry(edge);
+        return this.dataToScreen(geom.mid);
+      }
+      const start = this.dataToScreen(this.bundle.positions[edge.u]);
+      const end = this.dataToScreen(this.bundle.positions[edge.v]);
+      const c = this.quadraticControlPoint(edge);
+      const t = 0.5;
+      const x = (1-t)*(1-t)*start[0] + 2*(1-t)*t*c[0] + t*t*end[0];
+      const y = (1-t)*(1-t)*start[1] + 2*(1-t)*t*c[1] + t*t*end[1];
+      return [x, y];
+    }
+
+    directionMarker(edge) {
+      const geom = this.edgeDrawGeometry(edge);
+      let t = 0.62;
+      if (edge.u === edge.v) t = 0.50;
+      let point, tangent;
+      if (edge.u === edge.v) {
+        const s = this.dataToScreen(geom.start);
+        const e = this.dataToScreen(geom.end);
+        const c1 = this.dataToScreen(geom.c1);
+        const c2 = this.dataToScreen(geom.c2);
+        const omt = 1 - t;
+        const x = omt*omt*omt*s[0] + 3*omt*omt*t*c1[0] + 3*omt*t*t*c2[0] + t*t*t*e[0];
+        const y = omt*omt*omt*s[1] + 3*omt*omt*t*c1[1] + 3*omt*t*t*c2[1] + t*t*t*e[1];
+        point = [x, y];
+        const dx = 3*omt*omt*(c1[0]-s[0]) + 6*omt*t*(c2[0]-c1[0]) + 3*t*t*(e[0]-c2[0]);
+        const dy = 3*omt*omt*(c1[1]-s[1]) + 6*omt*t*(c2[1]-c1[1]) + 3*t*t*(e[1]-c2[1]);
+        tangent = [dx,dy];
+      } else {
+        const s = this.dataToScreen(geom.start);
+        const e = this.dataToScreen(geom.end);
+        // quadraticControlPoint(edge) already returns screen coordinates.
+        // Do not transform it again here, or direction markers can be pushed
+        // far off the visible edge after zoom/pan.
+        const c = this.quadraticControlPoint(edge);
+        const x = (1-t)*(1-t)*s[0] + 2*(1-t)*t*c[0] + t*t*e[0];
+        const y = (1-t)*(1-t)*s[1] + 2*(1-t)*t*c[1] + t*t*e[1];
+        point = [x, y];
+        const dx = 2*(1-t)*(c[0]-s[0]) + 2*t*(e[0]-c[0]);
+        const dy = 2*(1-t)*(c[1]-s[1]) + 2*t*(e[1]-c[1]);
+        tangent = [dx,dy];
+      }
+      if (this.config.directed) {
+        const [frm,to] = this.bundle.edgeOrientations[edgeKey(edge)] || [edge.u, edge.v];
+        if (frm === edge.v && to === edge.u) tangent = [-tangent[0], -tangent[1]];
+      }
+      const ang = Math.atan2(tangent[1], tangent[0]);
+      return {point, angle: ang};
+    }
+
+    drawCurrentGraph(resetViewport=false) {
+      if (!this.bundle) return;
+      this.computeViewport(resetViewport);
+      const svg = this.el.graphSvg;
+      while (svg.lastChild && svg.lastChild.tagName !== 'defs') svg.removeChild(svg.lastChild);
+      const layerEdges = svgEl('g');
+      const layerLabels = svgEl('g');
+      const layerNodes = svgEl('g');
+      svg.appendChild(layerEdges); svg.appendChild(layerLabels); svg.appendChild(layerNodes);
+
+      this.bundle.edgeIds.forEach(edge => {
+        const isEuler = this.eulerTraceState.some(e => edgeKey(e) === edgeKey(edge));
+        const color = isEuler ? TRACE_EDGE_COLOR : (this.crossingEdgeCache.has(edgeKey(edge)) ? CROSSING_EDGE_COLOR : EDGE_COLOR);
+        const path = svgEl('path', {
+          d: this.edgePathD(edge),
+          fill: 'none',
+          stroke: color,
+          'stroke-width': edge.u === edge.v ? (isEuler ? 4 : 3) : (isEuler ? 3.5 : 2.5),
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        });
+        layerEdges.appendChild(path);
+
+        if (this.config.directed && edge.u !== edge.v) {
+          const {point, angle} = this.directionMarker(edge);
+          const size = (this.config.displayEdgeLabels ? 16 : 11) * Math.max(1, Math.min(3.2, Math.pow(this.visualZoomScale(), 0.50)));
+          const [px,py] = point;
+          const tri = svgEl('path', {
+            d: `M ${px + Math.cos(angle)*size} ${py + Math.sin(angle)*size} L ${px + Math.cos(angle + 2.4)*size*0.75} ${py + Math.sin(angle + 2.4)*size*0.75} L ${px + Math.cos(angle - 2.4)*size*0.75} ${py + Math.sin(angle - 2.4)*size*0.75} Z`,
+            fill: GW_BLUE,
+            stroke: GW_BLUE,
+            'stroke-width': 1,
+          });
+          layerLabels.appendChild(tri);
+        }
+
+        if (this.config.displayEdgeLabels) {
+          const [lx,ly] = this.edgeLabelPosition(edge);
+          const label = this.bundle.edgeLabels[edgeKey(edge)] || '';
+          const g = svgEl('g');
+          const edgeLabelFont = this.edgeLabelFontSize();
+          const rectW = Math.max(24, edgeLabelFont * 1.85);
+          const rectH = Math.max(22, edgeLabelFont * 1.55);
+          const rect = svgEl('rect', {x: lx-rectW/2, y: ly-rectH/2, width: rectW, height: rectH, rx: Math.max(8, rectH * 0.36), fill: 'white', opacity: 0.92});
+          const text = svgEl('text', {x: lx, y: ly + edgeLabelFont*0.31, 'font-size': edgeLabelFont, 'text-anchor': 'middle', fill: GW_BLUE, 'font-weight': '700'});
+          text.textContent = label;
+          g.appendChild(rect); g.appendChild(text);
+          layerLabels.appendChild(g);
+        }
+      });
+
+      const nodeRadius = this.nodeVisualRadius();
+      const nodeFont = this.nodeLabelFontSize();
+      this.bundle.graph.nodes.forEach(node => {
+        const [x,y] = this.dataToScreen(this.bundle.positions[node]);
+        const fill = this.hamiltonTraceState.includes(node) ? TRACE_NODE_COLOR : NODE_FILL;
+        const g = svgEl('g', {'data-node': node});
+        const circle = svgEl('circle', {cx:x, cy:y, r:nodeRadius, fill, stroke:GW_BLUE, 'stroke-width': Math.max(2.2, nodeRadius * 0.09)});
+        const txt = svgEl('text', {x, y: y + nodeFont*0.32, 'font-size': nodeFont, 'text-anchor':'middle', fill:'white', 'font-weight':'700', 'pointer-events':'none'});
+        txt.textContent = this.labelTextFor(node);
+        g.appendChild(circle);
+        g.appendChild(txt);
+        layerNodes.appendChild(g);
+      });
+
+      if (this.config.eulerTrace) {
+        this.eulerTraceState.forEach((edge,i) => {
+          const [x,y] = this.edgeLabelPosition(edge);
+          const t = svgEl('text', {x, y: y - 14, 'font-size': this.traceFontSize(), 'text-anchor':'middle', fill:TRACE_EDGE_COLOR, 'font-weight':'800'});
+          t.textContent = String(i+1); layerLabels.appendChild(t);
+        });
+      }
+      if (this.config.hamiltonTrace) {
+        this.hamiltonTraceState.forEach((node,i) => {
+          const [x,y] = this.dataToScreen(this.bundle.positions[node]);
+          const t = svgEl('text', {x: x+18, y: y-14, 'font-size': this.traceFontSize(), 'text-anchor':'middle', fill:TRACE_EDGE_COLOR, 'font-weight':'800'});
+          t.textContent = String(i+1); layerLabels.appendChild(t);
+        });
+      }
+      this.refreshTable();
+      this.el.graphStats.textContent = `Vertices: ${this.bundle.graph.numberOfNodes()}    Edges: ${this.bundle.graph.numberOfEdges()}`;
+    }
+
+    labelTextFor(node) {
+      if (!this.config.displayValence) return node;
+      if (this.config.directed) {
+        const [indeg,outdeg] = this.bundle.valences[node];
+        return `${node} (${indeg},${outdeg})`;
+      }
+      return `${node} (${this.bundle.valences[node]})`;
+    }
+
+    pickNode(sx,sy,pointerType='mouse') {
+      if (!this.bundle) return null;
+      const isTouchLike = pointerType === 'touch' || pointerType === 'pen';
+      const nodeRadiusPx = this.nodeVisualRadius();
+      const hitRadius = Math.max(nodeRadiusPx + (isTouchLike ? 18 : 12), isTouchLike ? 64 : 44);
+      const ambiguityGap = isTouchLike ? 5 : 4;
+      let best = null, bestD = Infinity, secondD = Infinity;
+      for (const node of this.bundle.graph.nodes) {
+        const [nx,ny] = this.dataToScreen(this.bundle.positions[node]);
+        const d = Math.hypot(sx-nx, sy-ny);
+        if (d < bestD) {
+          secondD = bestD;
+          bestD = d;
+          best = node;
+        } else if (d < secondD) {
+          secondD = d;
+        }
+      }
+      if (bestD > hitRadius) return null;
+      if (secondD - bestD < ambiguityGap && bestD > nodeRadiusPx * 0.9) return null;
+      return best;
+    }
+  }
+
+  new App();
+})();
+</script>
+</body>
+</html>
